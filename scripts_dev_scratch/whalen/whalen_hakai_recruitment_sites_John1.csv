@@ -1,0 +1,11 @@
+Simulation.run,site.name,latitude,longitude,habitat,subhabitat,depth
+1,West Beach Macro,51.64894989,-128.151141,Rocky Reef,Kelp,4
+1,Second Beach Nereo,51.64926667,-12815536670,Rocky Reef,Kelp,6
+1,North Beach Nereo,51.66742975,-128.1400357,Rocky Reef,Kelp,4
+1,Rattenbury Rock,51.69136186,-128.0798309,Rocky Reef,Kelp*,5.2
+1,Meay Macro,51.66454505,-128.0947645,Rocky Reef,Kelp*,3.5
+2,Fifth Beach Intertidal,51.63981307,-128.1554483,Rocky Intertidal,NA,0
+2,West Beach Nearshore Intertidal,51.65742463,-128.1488582,Rocky Intertidal,NA,0
+2,North Beach PISCO Intertidal,51.66643373,-128.1350311,Rocky Intertidal,NA,0
+2,Meay Channel Martone Intertidal,51.66349994,-128.0975303,Rocky Intertidal,NA,0
+2,Pruth Bay South,51.65375481,-128.1286121,Rocky Intertidal,NA,0

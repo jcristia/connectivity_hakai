@@ -1,0 +1,8 @@
+folders should be project name (i.e. whalen, seagrass)
+each project should have folders for outputs, mxd, spatial, etc.
+spatial folder should only be used for specialized spatial data. Otherwise try to keep data in the root spatial folder.
+
+make a solution for each project that can hold multiple runs
+copy tool scripts in that you need
+
+runs should be named descriptive enough. Will figure out convention as I go.
