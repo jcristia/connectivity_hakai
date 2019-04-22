@@ -1,6 +1,6 @@
 folders should be project name (i.e. whalen, seagrass)
 each project should have folders for outputs, mxd, spatial, etc.
-spatial folder should only be used for specialized spatial data. Otherwise try to keep data in the root spatial folder.
+for spatial folder - try moving shapefiles in that you need. This will be repetitive, but it seems safer than always referencing the data in the root.
 
 make a solution for each project that can hold multiple runs
 copy tool scripts in that you need
