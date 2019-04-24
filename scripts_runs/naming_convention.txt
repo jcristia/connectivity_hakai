@@ -1,8 +1,8 @@
 folders should be project name (i.e. whalen, seagrass)
 each project should have folders for outputs, mxd, spatial, etc.
-for spatial folder - try moving shapefiles in that you need. This will be repetitive, but it seems safer than always referencing the data in the root.
+for spatial folder - move seagrass shapefiles in that you need. This will be repetitive, but it seems safer than always referencing the data in the root.
 
 make a solution for each project that can hold multiple runs
-copy tool scripts in that you need
+within a solution have a folder for each run (create within visual studio)
 
-runs should be named descriptive enough. Will figure out convention as I go.
+folder and runs should be names with project name and date e.g. seagrass_20190422

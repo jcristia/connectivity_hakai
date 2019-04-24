@@ -18,15 +18,16 @@ reader_basemap = reader_basemap_landmask.Reader(
                        llcrnrlon=-129.4, llcrnrlat=50.64,
                        urcrnrlon=-126.6, urcrnrlat=52.93,
                        resolution='f', projection='merc')
-reader_basemap.plot()
+#reader_basemap.plot()
 o.add_reader([reader_basemap, reader_hakai])
 
 from datetime import datetime
 from datetime import timedelta
 time_step = timedelta(hours=1)
-num_steps = 24
+num_steps = 1
+# shorten this for now. I will eventually want 24 steps and 40000 particles, but just see if this works first.
 for i in range(num_steps):
-    o.seed_from_shapefile(r'C:\Users\jcristia\Documents\GIS\MSc_Projects\Hakai\scripts_runs\seagrass\spatial\seagrass_merge_erase_clip_multisingle_rholes_less2000_hakai.shp', number=400000, time=reader_hakai.start_time + i*time_step)
+    o.seed_from_shapefile(r'C:\Users\jcristia\Documents\GIS\MSc_Projects\Hakai\scripts_runs\seagrass\spatial\seagrass_merge_erase_clip_multisingle_rholes_less2000_hakai.shp', number=200000, time=reader_hakai.start_time + i*time_step)
 
 o.elements_scheduled
 o.set_config('drift:current_uncertainty_uniform', 1)
