@@ -81,6 +81,14 @@ def get_particle_originPoly(seagrass, lon, lat, traj, seagrass_crs):
         else: # otherwise flip masking and get position of first value where not masked
             lons.append(lon[i][lon[i].mask==False][0])
             lats.append(lat[i][lat[i].mask==False][0])
+
+        # old way that wasn't accounting for every scenario
+        #if np.ma.is_masked(lon[i][-1]): # some trajs will not be masked at all, need to check for this (this would be if they are released on the first time step and never settle)
+        #    lons.append(lon[i][lon[i].mask==False][0])
+        #    lats.append(lat[i][lat[i].mask==False][0])
+        #else: # if it is not masked at any point, then it must be the first value
+        #    lons.append(lon[i][0])
+        #    lats.append(lat[i][0])
     
     # check which polygon it seeds in
     poly  = geopandas.GeoDataFrame.from_file(seagrass)
