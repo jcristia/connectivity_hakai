@@ -42,23 +42,23 @@ seagrass_crs = {'init' :'epsg:3005'}
 # if I am using 'stranding' in opendrift, then I likely need at least a small precompetency period because everything just ends up settling at home otherwise
 # be careful setting this. It depends on the time_step and time_step_output you used in the run
 # it is in units of the timestep output. If time step output is 30 minutes, then a precomp of 2 is 1 hour
-precomp = 4
+precomp = 0
 
 # get these values from the simulation script
 time_step_output = 0.5 # in hours. It will be in seconds in the opendrift script
 particles_per_release = 2000
 interval_of_release = 1 # in hours (interval can't be less than time step output) (if no delayed release then just put same value as time_step_output)
-num_of_releases = 24 # if no delayed release then just put 1
+num_of_releases = 1 # if no delayed release then just put 1
 
 # allow particles to settle?
 settlement_apply = False
 
 # mortality
-mortality_rate = 0.15 # instantaneous daily rate
-mort_period = 8 # after how many time_step_outputs to apply mortality rate (MAKE THIS A FACTOR OF 24). The mortality rate will be scaled appropriately so that still matches the daily rate. This option is given because it seems uncessary to apply it at every time step, but for some species with short PLDs, it will make sense to apply it more often than once per day. If mortality rate is 0, the also set this to 0.
+mortality_rate = 0 # instantaneous daily rate
+mort_period = 0 # after how many time_step_outputs to apply mortality rate (MAKE THIS A FACTOR OF 24). The mortality rate will be scaled appropriately so that still matches the daily rate. This option is given because it seems uncessary to apply it at every time step, but for some species with short PLDs, it will make sense to apply it more often than once per day. If mortality rate is 0, the also set this to 0.
 
 # is this a backwards run?
-backwards_run = False
+backwards_run = True
 
 # output shapefile location
 shp_out = r'C:\Users\jcristia\Documents\GIS\MSc_Projects\Hakai\scripts_runs\hakai_margot\hakai_margot\1rockyintertidal\fromopenocean\output\shp\dest_biology_pts_20190502.shp'
@@ -79,10 +79,23 @@ def get_particle_originPoly(seagrass, lon, lat, traj, seagrass_crs, lat_np, lon_
     # get starting lat/lon for each particle
     lons = np.load(lon_np)
     lats = np.load(lat_np)
-    # reverse order for backwards runs (opendrift for some reason records them in reverse in the netcdf file)
+    # reverse for backwards runs
     if backwards_run:
         lons = lons[::-1]
         lats = lats[::-1]
+
+    ## old method ##
+    # particles start at different times, so check if it is masked, stop once we find our first value
+    #lons = []
+    #lats = []
+    #for i in range(len(traj)):
+    #    # if first value is not masked then that is the starting point
+    #    if not np.ma.is_masked(lon[i][0]):
+    #        lons.append(lon[i][0])
+    #        lats.append(lat[i][0])
+    #    else: # otherwise flip masking and get position of first value where not masked
+    #        lons.append(lon[i][lon[i].mask==False][0])
+    #        lats.append(lat[i][lat[i].mask==False][0])
     
     # check which polygon it seeds in
     poly  = geopandas.GeoDataFrame.from_file(seagrass)
@@ -105,7 +118,7 @@ def get_particle_originPoly(seagrass, lon, lat, traj, seagrass_crs, lat_np, lon_
     origin_temp = origin[origin.uID.isnull()]
     for row in origin_temp.itertuples(index=True):
         index = row[0]
-        # 20190502 In the future may also need to consider if it is the very first or last point in the entire series that is NaN, in which case I will get an error.
+        # 20190502 May also need to consider if it is the very first or last point in the entire series that is NaN, in which case I will get an error.
         before = origin["uID"][index-1]
         after = origin["uID"][index+1]
 
