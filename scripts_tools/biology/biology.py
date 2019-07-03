@@ -22,21 +22,22 @@ import fiona
 import pandas as pd
 import geopandas
 import math
-
+import logging
+logging.basicConfig(level=logging.INFO)
 
 ###################
 # variables to set on each run
 ###################
 
 # output from Opendrift
-nc_output = r'C:\Users\jcristia\Documents\GIS\MSc_Projects\Hakai\scripts_runs\hakai_margot\hakai_margot\1rockyintertidal\fromopenocean\output\rockyint_20190501_2.nc'
+nc_output = r'outputs/rockyint_20190501_1.nc'
 
 # the lat and lon numpy files of starting coordinates saved from the opendrift run
-lat_np = r'C:\Users\jcristia\Documents\GIS\MSc_Projects\Hakai\scripts_runs\hakai_margot\hakai_margot\1rockyintertidal\fromopenocean\output\lat_2.npy'
-lon_np = r'C:\Users\jcristia\Documents\GIS\MSc_Projects\Hakai\scripts_runs\hakai_margot\hakai_margot\1rockyintertidal\fromopenocean\output\lon_2.npy'
+lat_np = r'outputs/lat_1.npy'
+lon_np = r'outputs/lon_1.npy'
 
-seagrass = r'C:\Users\jcristia\Documents\GIS\MSc_Projects\Hakai\scripts_runs\hakai_margot\spatial\hakai_margot_reproject\hakai_polys_1rockyintertidal.shp'
-seagrass_buff = r'C:\Users\jcristia\Documents\GIS\MSc_Projects\Hakai\scripts_runs\hakai_margot\spatial\hakai_margot_reproject\hakai_polys_1rockyintertidal_buff20.shp' # buffered by 20m just for checking settlement. This is to account for seagrass polys that have slivers between coastline
+seagrass = r'hakai_polys_1rockyintertidal.shp'
+seagrass_buff = r'hakai_polys_1rockyintertidal_buff20.shp' # buffered by 20m just for checking settlement. This is to account for seagrass polys that have slivers between coastline
 seagrass_crs = {'init' :'epsg:3005'}
 
 # if I am using 'stranding' in opendrift, then I likely need at least a small precompetency period because everything just ends up settling at home otherwise
@@ -51,7 +52,7 @@ interval_of_release = 1 # in hours (interval can't be less than time step output
 num_of_releases = 24 # if no delayed release then just put 1
 
 # allow particles to settle?
-settlement_apply = False
+settlement_apply = True
 
 # mortality
 mortality_rate = 0.15 # instantaneous daily rate
@@ -61,8 +62,8 @@ mort_period = 8 # after how many time_step_outputs to apply mortality rate (MAKE
 backwards_run = False
 
 # output shapefile location
-shp_out = r'C:\Users\jcristia\Documents\GIS\MSc_Projects\Hakai\scripts_runs\hakai_margot\hakai_margot\1rockyintertidal\fromopenocean\output\shp\dest_biology_pts_20190502.shp'
-conn_lines_out = r'C:\Users\jcristia\Documents\GIS\MSc_Projects\Hakai\scripts_runs\hakai_margot\hakai_margot\1rockyintertidal\fromopenocean\output\shp\connectivity_20190502.shp'
+shp_out = r'outputs/shp/dest_biology_pts_20190502.shp'
+conn_lines_out = r'outputs/shp/connectivity_20190502.shp'
 
 
 
@@ -75,6 +76,8 @@ conn_lines_out = r'C:\Users\jcristia\Documents\GIS\MSc_Projects\Hakai\scripts_ru
 ###################
 
 def get_particle_originPoly(seagrass, lon, lat, traj, seagrass_crs, lat_np, lon_np, backwards_run):
+
+    logging.info("Getting origin coordinates of each particle")
 
     # get starting lat/lon for each particle
     lons = np.load(lon_np)
@@ -103,6 +106,10 @@ def get_particle_originPoly(seagrass, lon, lat, traj, seagrass_crs, lat_np, lon_
     shp = fiona.open(seagrass)
     # select ones that are NaN
     origin_temp = origin[origin.uID.isnull()]
+
+    logging.info("Getting origin coordinates for points that didn't fall within a polygon. The following particles...")
+    print origin_temp
+
     for row in origin_temp.itertuples(index=True):
         index = row[0]
         # 20190502 In the future may also need to consider if it is the very first or last point in the entire series that is NaN, in which case I will get an error.
@@ -217,6 +224,9 @@ def settlement(settlement_apply, origin, seagrass_buff, timestep, status, lon, l
 
     if settlement_apply: # if this is false, then it will just join the blank dest_df to origin, and the get_destination_coords function will fill in the rest
         for i in range(1,len(timestep)):
+
+            output_str = "settlement time step " + str(i) + " of " + str(len(timestep))
+            logging.info(output_str)
             # get traj ids for particles that are active or where they were active on the previous step (just stranded)
             # NOTE: special case I may need to fix in the future: when running backwards I had a particle that was 1 on the very first time step. However, since it always seems to mask them after they are 1, I could just select where == 1 and not worry about if the previous step was 0.
             t_strand = traj[np.where((status[:,[i]] == 1) & (status[:,[i-1]] == 0))[0]]
@@ -277,6 +287,13 @@ def settlement(settlement_apply, origin, seagrass_buff, timestep, status, lon, l
     # join the two tables
     # The resulting data frame is the particles that settled in another patch
     # to get all particles including the ones that did not settle change to:  how='outer'
+    logging.info("merging destination and origin dataframes")
+    # need to coerce merge. traj_id must be numeric. The dest_df data types were all "object"
+    # this was not a problem on windows, but when running on the cluster it woud give an error
+    dest_df = dest_df.infer_objects()
+    origin = origin.infer_objects()
+    dest_df.traj_id = dest_df.traj_id.astype('float')
+    origin.traj_id = origin.traj_id.astype('float')
     origin_dest = dest_df.merge(origin, on='traj_id', how='outer')
 
     return origin_dest
@@ -287,6 +304,7 @@ def settlement(settlement_apply, origin, seagrass_buff, timestep, status, lon, l
 
 def get_destination_coords(origin_dest, traj, lon, lat, timestep, seagrass_crs, status):
 
+    logging.info("getting destination coordinates")
     lons_dest = []
     lats_dest = []
     time_steps = []
@@ -336,6 +354,9 @@ def get_destination_coords(origin_dest, traj, lon, lat, timestep, seagrass_crs, 
     # I was originally doing itertuples, which I found out is extremely slow and a big no-no.
     # stick with vectorization when possible
     # join, fill in values where null, remove columns
+    logging.info("joining destination coordinates to dataframe")
+    points_dest = points_dest.infer_objects()
+    points_dest.traj_id = points_dest.traj_id.astype('float')
     origin_dest = origin_dest.merge(points_dest, on='traj_id')
     origin_dest['time_int'].loc[origin_dest['time_int'].isnull()] = origin_dest['time_step']
     origin_dest['d_coords'].loc[origin_dest['d_coords'].isnull()] = origin_dest['Coordinates']
@@ -352,6 +373,8 @@ def get_destination_coords(origin_dest, traj, lon, lat, timestep, seagrass_crs, 
 ###################
 
 def calc_mortality(mortality_rate, traj, timestep, origin_dest, time_step_output, mort_period, interval_of_release, num_of_releases):
+
+    logging.info("calculating mortality")
 
     mortality_p = pd.DataFrame(columns=['traj_id','mortstep'])
 
@@ -409,7 +432,7 @@ def calc_mortality(mortality_rate, traj, timestep, origin_dest, time_step_output
 
             # append this selection to mortality_p with the timestep that they were killed
             df = pd.DataFrame({'traj_id':mortality_selection, 'mortstep':i})
-            mortality_p = mortality_p.append(df, ignore_index=True)
+            mortality_p = mortality_p.append(df, ignore_index=True, sort=True)
 
     # join to origin_dest
     origin_dest_mort = origin_dest.merge(mortality_p, on='traj_id', how='outer')
@@ -454,6 +477,7 @@ origin_dest_mort, mortality_p = calc_mortality(mortality_rate, traj, timestep, o
 
 #### output to shapefile ####
 def out_shp_dest_points(origin_dest_mort, seagrass_crs, shp_out):
+    logging.info("writing points to shapefile")
     # can only have one geometry column
     # remove origin spatial column since for origin I am just concernced about origin poly ID
     od = origin_dest_mort.drop(['o_coords'], axis=1)
@@ -464,6 +488,8 @@ def out_shp_dest_points(origin_dest_mort, seagrass_crs, shp_out):
 
 #### create connection lines ####
 def connection_lines(shp_out, seagrass, seagrass_crs, conn_lines_out):
+
+    logging.info("writing connection lines to shapefile")
     od = geopandas.read_file(shp_out)
     sg = geopandas.read_file(seagrass)
     

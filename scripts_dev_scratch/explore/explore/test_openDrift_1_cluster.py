@@ -5,13 +5,13 @@ from opendrift.models.openoil import OpenOil
 o = OpenOil(loglevel=0)
 
 from opendrift.readers import reader_netCDF_CF_generic
-reader_norkyst = reader_netCDF_CF_generic.Reader(r'C:\Python27\ArcGISx6410.3\Lib\site-packages\opendrift\tests\test_data\16Nov2015_NorKyst_z_surface\norkyst800_subset_16Nov2015.nc')
+reader_norkyst = reader_netCDF_CF_generic.Reader(r'norkyst800_subset_16Nov2015.nc')
 print reader_norkyst
-reader_norkyst.plot()
+#reader_norkyst.plot()
 
-reader_arctic20 = reader_netCDF_CF_generic.Reader(r'C:\Python27\ArcGISx6410.3\Lib\site-packages\opendrift\tests\test_data\2Feb2016_Nordic_sigma_3d\Arctic20_1to5Feb_2016.nc')
+reader_arctic20 = reader_netCDF_CF_generic.Reader(r'Arctic20_1to5Feb_2016.nc')
 print reader_arctic20
-reader_arctic20.plot()
+#reader_arctic20.plot()
 
 
 print OpenOil.required_variables
@@ -35,7 +35,7 @@ scheme = o.get_config('drift:scheme')
 print scheme
 
 o.run(end_time=reader_norkyst.end_time, time_step=3600,
-          time_step_output=3600, outfile=r'C:\Users\jcristia\Documents\GIS\MSc_Projects\Hakai\scripts_dev_scratch\explore\openoil_output.nc', export_variables=['density', 'water_content'])
+          time_step_output=3600, outfile=r'openoil_output.nc', export_variables=['density', 'water_content'])
 
 print o
 
