@@ -12,8 +12,7 @@
 # However, I've checked, and it is fine. What is is interesting, is if you run it again, it doesn't give the same warning.
 
 
-import sys
-sys.path.append("/Linux/src/opendrift-master")
+
 
 
 import netCDF4 as nc
@@ -31,14 +30,14 @@ logging.basicConfig(level=logging.INFO)
 ###################
 
 # output from Opendrift
-nc_output = r'outputs/seagrass_20190626_1.nc'
+nc_output = r'outputs/rockyint_20190501_1.nc'
 
 # the lat and lon numpy files of starting coordinates saved from the opendrift run
 lat_np = r'outputs/lat_1.npy'
 lon_np = r'outputs/lon_1.npy'
 
-seagrass = r'seagrass_less2000_hakai.shp'
-seagrass_buff = r'seagrass_less2000_hakai_buff20.shp' # buffered by 20m just for checking settlement. This is to account for seagrass polys that have slivers between coastline
+seagrass = r'hakai_polys_1rockyintertidal.shp'
+seagrass_buff = r'hakai_polys_1rockyintertidal_buff20.shp' # buffered by 20m just for checking settlement. This is to account for seagrass polys that have slivers between coastline
 seagrass_crs = {'init' :'epsg:3005'}
 
 # if I am using 'stranding' in opendrift, then I likely need at least a small precompetency period because everything just ends up settling at home otherwise
@@ -48,9 +47,9 @@ precomp = 4
 
 # get these values from the simulation script
 time_step_output = 0.5 # in hours. It will be in seconds in the opendrift script
-particles_per_release = 400000
-interval_of_release = 4 # in hours (interval can't be less than time step output) (if no delayed release then just put same value as time_step_output)
-num_of_releases = 6 # if no delayed release then just put 1
+particles_per_release = 2000
+interval_of_release = 1 # in hours (interval can't be less than time step output) (if no delayed release then just put same value as time_step_output)
+num_of_releases = 24 # if no delayed release then just put 1
 
 # allow particles to settle?
 settlement_apply = True
@@ -63,8 +62,8 @@ mort_period = 8 # after how many time_step_outputs to apply mortality rate (MAKE
 backwards_run = False
 
 # output shapefile location
-shp_out = r'outputs/shp/dest_biology_pts_20190703.shp'
-conn_lines_out = r'outputs/shp/connectivity_20190703.shp'
+shp_out = r'outputs/shp/dest_biology_pts_20190502.shp'
+conn_lines_out = r'outputs/shp/connectivity_20190502.shp'
 
 
 
