@@ -30,14 +30,14 @@ logging.basicConfig(level=logging.INFO)
 ###################
 
 # output from Opendrift
-nc_output = r'outputs/rockyint_20190501_1.nc'
+nc_output = r'C:\Users\jcristia\Documents\GIS\MSc_Projects\Hakai\scripts_runs\hakai_margot\hakai_margot\1rockyintertidal\betweensites\output/rockyint_20190501_1.nc'
 
 # the lat and lon numpy files of starting coordinates saved from the opendrift run
-lat_np = r'outputs/lat_1.npy'
-lon_np = r'outputs/lon_1.npy'
+lat_np = r'C:\Users\jcristia\Documents\GIS\MSc_Projects\Hakai\scripts_runs\hakai_margot\hakai_margot\1rockyintertidal\betweensites\output/lat_1.npy'
+lon_np = r'C:\Users\jcristia\Documents\GIS\MSc_Projects\Hakai\scripts_runs\hakai_margot\hakai_margot\1rockyintertidal\betweensites\output/lon_1.npy'
 
-seagrass = r'hakai_polys_1rockyintertidal.shp'
-seagrass_buff = r'hakai_polys_1rockyintertidal_buff20.shp' # buffered by 20m just for checking settlement. This is to account for seagrass polys that have slivers between coastline
+seagrass = r'C:\Users\jcristia\Documents\GIS\MSc_Projects\Hakai\scripts_runs\hakai_margot\spatial\hakai_margot_reproject\hakai_polys_1rockyintertidal.shp'
+seagrass_buff = r'C:\Users\jcristia\Documents\GIS\MSc_Projects\Hakai\scripts_runs\hakai_margot\spatial\hakai_margot_reproject\hakai_polys_1rockyintertidal_buff20.shp' # buffered by 20m just for checking settlement. This is to account for seagrass polys that have slivers between coastline
 seagrass_crs = {'init' :'epsg:3005'}
 
 # if I am using 'stranding' in opendrift, then I likely need at least a small precompetency period because everything just ends up settling at home otherwise
@@ -62,8 +62,9 @@ mort_period = 8 # after how many time_step_outputs to apply mortality rate (MAKE
 backwards_run = False
 
 # output shapefile location
-shp_out = r'outputs/shp/dest_biology_pts_20190502.shp'
-conn_lines_out = r'outputs/shp/connectivity_20190502.shp'
+shp_out = r'C:\Users\jcristia\Documents\GIS\MSc_Projects\Hakai\scripts_runs\hakai_margot\hakai_margot\1rockyintertidal\betweensites\output\shp/dest_biology_pts_20190502.shp'
+conn_lines_out = r'C:\Users\jcristia\Documents\GIS\MSc_Projects\Hakai\scripts_runs\hakai_margot\hakai_margot\1rockyintertidal\betweensites\output\shp/connectivity_20190502.shp'
+patch_centroids_out = r'C:\Users\jcristia\Documents\GIS\MSc_Projects\Hakai\scripts_runs\hakai_margot\hakai_margot\1rockyintertidal\betweensites\output\shp/patch_centroids.shp'
 
 
 
@@ -455,6 +456,7 @@ lat = dataset.variables["lat"]
 traj = dataset.variables["trajectory"]
 status = dataset.variables["status"]
 timestep = dataset.variables["time"]
+date_start = dataset.time_coverage_start
 
 origin = get_particle_originPoly(seagrass, lon, lat, traj, seagrass_crs, lat_np, lon_np, backwards_run)
 
@@ -477,8 +479,8 @@ origin_dest_mort, mortality_p = calc_mortality(mortality_rate, traj, timestep, o
 # OUTPUTS
 ###################
 
-#### output to shapefile ####
-def out_shp_dest_points(origin_dest_mort, seagrass_crs, shp_out):
+#### output destinaiton points to shapefile ####
+def out_shp_dest_points(origin_dest_mort, seagrass_crs, shp_out, date_start):
     logging.info("writing points to shapefile")
     # can only have one geometry column
     # remove origin spatial column since for origin I am just concernced about origin poly ID
@@ -486,10 +488,11 @@ def out_shp_dest_points(origin_dest_mort, seagrass_crs, shp_out):
     od = geopandas.GeoDataFrame(od, geometry='d_coords')
     od.crs = seagrass_crs
     od = od.fillna(-1) # fill NaN with -1, otherwise NaN gets turned to 0 on export. This could be confusing when analyzing the data
+    od['date_start'] = date_start
     od.to_file(filename=shp_out, driver='ESRI Shapefile')
 
 #### create connection lines ####
-def connection_lines(shp_out, seagrass, seagrass_crs, conn_lines_out):
+def connection_lines(shp_out, seagrass, seagrass_crs, conn_lines_out, date_start):
 
     logging.info("writing connection lines to shapefile")
     od = geopandas.read_file(shp_out)
@@ -543,11 +546,24 @@ def connection_lines(shp_out, seagrass, seagrass_crs, conn_lines_out):
         connection_lines.loc[conn_i] = [row[0],row[1],row[2],total,row[2]/float(total), time_int,geom_line]
         conn_i += 1
     
+    connection_lines['date_start'] = date_start   
     connection_lines = geopandas.GeoDataFrame(connection_lines, geometry='line')
     connection_lines.crs = seagrass_crs
     connection_lines.to_file(filename=conn_lines_out, driver='ESRI Shapefile')
 
+#### output patch centroids to shapefile (for use in network analysis) ####
+def out_shp_patch_centroids(seagrass, patch_centroids_out, seagrass_crs, date_start):
+    sg = geopandas.read_file(seagrass)
+    # copy poly to new GeoDataFrame
+    points = sg.copy()
+    # change the geometry
+    points.geometry = points['geometry'].centroid
+    # same crs
+    points.crs = seagrass_crs
+    points['date_start'] = date_start
+    points.to_file(filename=patch_centroids_out, driver='ESRI Shapefile')
 
-out_shp_dest_points(origin_dest_mort, seagrass_crs, shp_out)
+out_shp_dest_points(origin_dest_mort, seagrass_crs, shp_out, date_start)
 if settlement_apply:
-    connection_lines(shp_out, seagrass, seagrass_crs, conn_lines_out)
+    connection_lines(shp_out, seagrass, seagrass_crs, conn_lines_out, date_start)
+out_shp_patch_centroids(seagrass, patch_centroids_out, seagrass_crs, date_start)
