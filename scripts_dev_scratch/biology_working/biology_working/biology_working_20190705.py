@@ -543,7 +543,7 @@ def connection_lines(shp_out, seagrass, seagrass_crs, conn_lines_out, date_start
             radius_adj = radius * quantity_norm
             geom_line = LineString(CircleCoords(centroid_origin.x.tolist()[0], centroid_origin.y.tolist()[0], radius_adj, 90))
     
-        connection_lines.loc[conn_i] = [row[0],row[1],row[2],total,row[2]/float(total), time_int,geom_line]
+        connection_lines.loc[conn_i] = [row[0],row[1],float(row[2]),float(total),row[2]/float(total), time_int,geom_line]
         conn_i += 1
     
     connection_lines['date_start'] = date_start   
