@@ -1,14 +1,11 @@
 """ This script calculates connectivity metrics using the resulting connectivity lines """
 
 ## Modules ##
-import cPickle as pickle
 import networkx as nx
 import pandas as pd
 import numpy as np
 import arcpy
 import os
-
-
 
 #################################
 ### Configure these variables ###
@@ -22,16 +19,19 @@ arcpy.env.overwriteOutput = True
 #
 ##
 
-results_directory = r'C:\Users\jcristia\Documents\GIS\MSc_Projects\Larval_connectivity\LarvalConnectivity_GulfIslands\GulfIslands_04\RESULTS_ALL'
+results_directory = r'C:\Users\jcristia\Documents\GIS\MSc_Projects\Hakai\scripts_dev_scratch\network_analysis\output'
 
-### Results geodatabase and connectivity results feature class ###
+### Paths and file names ###
 #
-# The geodatabase and connectivity results feature class from the simulation
-#
+# The connectivity lines output from the biology script
+# The seagrass patch centers
+# The output gdb to hold copies of lines and points with network metrics added in
+# 
 ##
 
-results_gdb = 'results.gdb' 
-results_fc = 'Connectivity'
+results_shp = 'connectivity.shp'
+patch_centroids = 'patch_centroids.shp'
+project_gdb = "metrics.gdb"
 
 ### Connectivity metrics feature classes ###
 #
@@ -42,47 +42,16 @@ results_fc = 'Connectivity'
 # of patch point data.
 #
 ##
-fc_conn_lines = 'Connectivity_metrics_connections'
-fc_conn_pts = 'Connectivity_metrics_patches'
+fc_conn_lines = 'connectivity_metrics_connections'
+fc_conn_pts = 'connectivity_metrics_patches'
 
-### Seagrass patch point fc ###
-#
-# The feature class that holds patch centroids for each seagrass patch.
-# A copy of this is created in each results gdb and is used to hold patch specific metrics.
-#
-##
-
-patch_centroids = r'C:\Users\jcristia\Documents\GIS\MSc_Projects\Larval_connectivity\LarvalConnectivity_GulfIslands\GulfIslands_04\GulfIslands_04_general.gdb\patch_ids'
-
-### Pickle file ###
-#
-# The pickle results file. This is used in the timing calculations.
-#
-##
-
-pickle_file = "Results.pickle"
-
-### Output gdb ###
+### Merged gdb ###
 #
 # This gdb holds the merged feature classes that are project-level and not for just one simulation's results
 #
 ##
 
-output_gdb = r"C:\Users\jcristia\Documents\GIS\MSc_Projects\Larval_connectivity\LarvalConnectivity_GulfIslands\GulfIslands_04\GulfIslands_04_metrics_individual.gdb"
-
-### Simulation parameters ###
-#
-# The parameters used in the simulations.
-# These are used in this script for the timing calculations.
-#
-##
-
-mortality_rate = 0.15
-time_step = 0.000833333333333333    # I get this value directly from the parameters file
-summ_period = 300
-mrt = 0.0001
-#days_divider = 4    # this is to convert the dispersal index value to days. It is equivalent to the time_step * summ_period (so in this case 6 hours or 1/4 day), but since that value is oftentimes not exact, it is better to just hard code the value here.
-#commented out for now as it caused some problems, and it is not entirely necessary.
+merged_gdb = r"metrics_merged.gdb"
 
 
 
@@ -101,38 +70,41 @@ mrt = 0.0001
 # create fcs where they do not exist
 #
 
-def createMetricFCs(results_directory, results_gdb, results_fc, patch_centroids, fc_conn_lines, fc_conn_pts):
+def createMetricFCs(results_directory, results_shp, patch_centroids, fc_conn_lines, fc_conn_pts, project_gdb):
     # go through each results folder. This gets the intermediate folder between results_directory and results_gdb. This is the one labeled by date and time.
     folders = os.listdir(results_directory)
     for folder in folders:
-        gdb = os.path.join(results_directory, folder, results_gdb)
-        in_fc_lines = os.path.join(gdb, results_fc)
-        in_fc_pts = os.path.join(gdb, patch_centroids)
+        gdb = os.path.join(results_directory, folder, project_gdb)
+        in_shp_lines = os.path.join(results_directory, folder, results_shp)
+        in_shp_pts = os.path.join(results_directory, folder, patch_centroids)
         out_fc_lines = os.path.join(gdb, fc_conn_lines)
         out_fc_pts = os.path.join(gdb, fc_conn_pts)
+        if not arcpy.Exists(gdb):
+            arcpy.CreateFileGDB_management(os.path.join(results_directory, folder), project_gdb)
         if arcpy.Exists(out_fc_lines):
             print folder + ": fc_conn_lines already exists"
         else:
-            arcpy.CopyFeatures_management(in_fc_lines, out_fc_lines)
+            arcpy.CopyFeatures_management(in_shp_lines, out_fc_lines)
             print folder + ": fc_conn_lines created"
         if arcpy.Exists(out_fc_pts):
             print folder + ": fc_conn_pts already exists"
         else:
-            arcpy.CopyFeatures_management(in_fc_pts, out_fc_pts)
+            arcpy.CopyFeatures_management(in_shp_pts, out_fc_pts)
             print folder + ": fc_conn_pts created"
 
 ## createDateField ##
 #
 # creates a date field and populates with the date of the simulation
+# geopandas prints date as a string, but I want the date to be recognized by Arc as the DATE type
 #
 
-def createDateField(results_directory, results_gdb, fc_conn_lines, fc_conn_pts):
+def createDateField(results_directory, project_gdb, fc_conn_lines, fc_conn_pts):
 
     folders = os.listdir(results_directory)
     for folder in folders:
-        gdb = os.path.join(results_directory, folder, results_gdb)
-        fc_ln = os.path.join(results_directory, folder, results_gdb, fc_conn_lines)
-        fc_pt = os.path.join(results_directory, folder, results_gdb, fc_conn_pts)
+        gdb = os.path.join(results_directory, folder, project_gdb)
+        fc_ln = os.path.join(results_directory, folder, project_gdb, fc_conn_lines)
+        fc_pt = os.path.join(results_directory, folder, project_gdb, fc_conn_pts)
         fieldNames_ln = [field.name for field in arcpy.ListFields(fc_ln)]
         fieldNames_pt = [field.name for field in arcpy.ListFields(fc_pt)]
         if "date" in fieldNames_ln:
@@ -146,89 +118,28 @@ def createDateField(results_directory, results_gdb, fc_conn_lines, fc_conn_pts):
         else:
             arcpy.AddField_management(fc_pt, "date", "DATE")
 
-        # Format date
-        day = folder.split('_')[1]
-        time = folder.split('_')[2]
-        yyyy = int(day[:4])
-        MM = int(day[4:6])
-        dd = int(day[6:8])
-        HH = int(time[:2])
-        mm = int(time[2:])
+        with arcpy.da.SearchCursor(fc_ln, ["date_start"]) as cursor:
+            for row in cursor:
+                date_start = row[0]
+                break
 
         # why you use updateCursor instead of CalculateField when working with dates:
         # https://gis.stackexchange.com/questions/153978/why-is-arcpy-calculatefield-management-writing-1899-12-30-000000-instead-of
 
         with arcpy.da.UpdateCursor(fc_ln, ["date"]) as cursor:
             for row in cursor:
-                row[0] = datetime.datetime(yyyy, MM, dd, HH, mm)
+                row[0] = date_start
                 cursor.updateRow(row)
 
         with arcpy.da.UpdateCursor(fc_pt, ["date"]) as cursor:
             for row in cursor:
-                row[0] = datetime.datetime(yyyy, MM, dd, HH, mm)
+                row[0] = date_start
                 cursor.updateRow(row) 
 
+        deleteField(results_directory, project_gdb, fc_ln, ['date_start'])
+        deleteField(results_directory, project_gdb, fc_pt, ['date_start'])
+
         print folder + ": date field added complete"
-
-## timing ##
-#
-# calculates the time since the the start of the simulation that a connection was made
-# creates a new field in the Connectivity_metrics_connections feature class
-#
-
-def calcTiming(results_directory, results_gdb, fc_conn_lines, pickle_file, mortality_rate, time_step, summ_period, mrt):
-    
-    folders = os.listdir(results_directory)
-    for folder in folders:
-
-            # check if field exists, add column for timeOfConnection
-            fc = os.path.join(results_directory, folder, results_gdb, fc_conn_lines)
-            fieldNames = [field.name for field in arcpy.ListFields(fc)]
-            if "timeOfConnection" in fieldNames:
-                print folder + ": timeOfConnection field already exists"
-                continue    # skips this folder in the for loop
-            else:
-                arcpy.AddField_management(fc, "timeOfConnection", "FLOAT")
-        
-            # access pickle file
-            fileObject = open(os.path.join(results_directory, folder, pickle_file), 'r')
-            a = pickle.load(fileObject)
-            
-            # go through each connection
-            cursor = arcpy.da.UpdateCursor(fc, ['FromPatchID','ToPatchID','timeOfConnection'])
-            for row in cursor:
-                
-                # get the patchID of the from and to patches
-                fr = row[0]
-                to = row[1]
-        
-                # find the index value in the pickle file for the from and to patches (since they are not exactly sequential)
-                fr_index = a[4]['sourceIDs'].index(fr)
-                to_index = a[4]['destIDs'].index(to)
-        
-                # get array of quantities from dispersal matrix for that from and to (a[DISPERSALMATRIX][FROM][TO])
-                q = a[1][fr_index][to_index]
-        
-                # apply mortality (it's hard to understand what is going on here, but refer to the mortality example spreadsheet for clarification)
-                fractionAlive = [math.exp(math.log(1 - mortality_rate) * i * time_step * summ_period) for i in range(q.shape[-1])]  # this calculates the mortality rate for each summarization period
-                q_mort = [] # define array that will hold quantities adjusted with mortality
-                q_mort.append(q[0])   # at time=0, dispersal is zero between all pairs of patches
-                for i in range(1, q.shape[-1]): # go through the rest of q starting on the second position and apply mortality and put into array
-                    q_temp = ((q[i] - q[i-1]) * fractionAlive[i]) + q_mort[-1]
-                    q_mort.append(q_temp)
-            
-                # find at which summarization period that quantity first exceeds the MRT
-                b = np.array(q_mort) # must first make this a numpy array
-                summ = np.argwhere(b >= mrt) # this will give an array of every location over the MRT
-                summ_i = summ[0][0] # numpy makes every value its own array, so therefore you need to go two levels in to get the actual value
-                #summ_i = float(summ_i) / days_divider  # commented out for now. This doesn't work well with ArcGIS Time. I may configure something else later if needed.
-                
-                # insert into timeOfConnection field
-                row[2] = summ_i
-                cursor.updateRow(row)
-            
-            del cursor, row
-            print folder + ": timeOfConnection calculation complete"
 
 ## sourceSink ##
 #
@@ -236,29 +147,28 @@ def calcTiming(results_directory, results_gdb, fc_conn_lines, pickle_file, morta
 # creates new fields in the Connectivity_metrics_patches feature class
 #
 
-def calcSourceSink(results_directory, results_gdb, results_fc, fc_conn_pts):
+def calcSourceSink(results_directory, project_gdb, fc_conn_lines, fc_conn_pts):
 
     # add source-sink fields
     folders = os.listdir(results_directory)
     for folder in folders:
-        fc = os.path.join(results_directory, folder, results_gdb, fc_conn_pts)
+        fc = os.path.join(results_directory, folder, project_gdb, fc_conn_pts)
         fieldNames = [field.name for field in arcpy.ListFields(fc)]
         if "From_count" in fieldNames:
             print folder + ": source-sink fields already exists"
             continue    # skips this folder in the for loop
         else:
-            arcpy.AddField_management(fc, "From_count", "SHORT")
-            arcpy.AddField_management(fc, "From_quantity", "DOUBLE")
-            arcpy.AddField_management(fc, "To_count", "SHORT")
-            arcpy.AddField_management(fc, "To_quantity", "DOUBLE")
-            arcpy.AddField_management(fc, "Net_count", "SHORT")
-            arcpy.AddField_management(fc, "Net_quantity", "DOUBLE")
+            arcpy.AddField_management(fc, "from_count", "SHORT")
+            arcpy.AddField_management(fc, "from_quantity", "DOUBLE")
+            arcpy.AddField_management(fc, "to_count", "SHORT")
+            arcpy.AddField_management(fc, "to_quantity", "DOUBLE")
+            arcpy.AddField_management(fc, "net_count", "SHORT")
+            arcpy.AddField_management(fc, "net_quantity", "DOUBLE")
 
         # update with info from connectivity line fc
-        c_fc = os.path.join(results_directory, folder, results_gdb, results_fc)
-        cursor_patchIDs = arcpy.da.UpdateCursor(fc, ['PatchID', 'From_count', 'From_quantity', 'To_count', 'To_quantity'])
-        cursor_connectivity = arcpy.da.SearchCursor(c_fc, ['FromPatchID', 'ToPatchID', 'Quantity'])
-        # searchCursor returns a tuple (e.g. (245),), which would put together the values if I was searching over more than one attribute, so to access just the first value you need to say row[0]
+        c_fc = os.path.join(results_directory, folder, project_gdb, fc_conn_lines)
+        cursor_patchIDs = arcpy.da.UpdateCursor(fc, ['uID', 'from_count', 'from_quantity', 'to_count', 'to_quantity'])
+        cursor_connectivity = arcpy.da.SearchCursor(c_fc, ['from_id', 'to_id', 'quantity'])
         for row in cursor_patchIDs:
             count_from = 0
             quantity_from = 0.0
@@ -282,8 +192,8 @@ def calcSourceSink(results_directory, results_gdb, results_fc, fc_conn_pts):
 
         # calculate net fields
         # I will consider a sink to have negative values, so therefore I will From minus To
-        arcpy.CalculateField_management(fc, "Net_count", "!From_count! - !To_count!", "PYTHON_9.3")
-        arcpy.CalculateField_management(fc, "Net_quantity", "!From_quantity! - !To_quantity!", "PYTHON_9.3")
+        arcpy.CalculateField_management(fc, "net_count", "!from_count! - !to_count!", "PYTHON_9.3")
+        arcpy.CalculateField_management(fc, "net_quantity", "!from_quantity! - !to_quantity!", "PYTHON_9.3")
 
         print folder + ": source-sink calculation complete"
 
@@ -301,7 +211,7 @@ def calcSourceSink(results_directory, results_gdb, results_fc, fc_conn_pts):
 # (n-1)(n-2) can be thought of as: n-1 comes from the sample size minus the starting point s, and n-2 is every possible combination of nodes not including s (itself) or a connection to v (the node in question)
 #
 
-def calcBetweenness(results_directory, results_gdb, results_fc, fc_conn_pts):
+def calcBetweenness(results_directory, project_gdb, fc_conn_lines, fc_conn_pts):
     
     # note: even though there is a shapefile import in networkx, it is not the most efficient way. When it creates the nodes, it doesn't recognize the from and to as the node labels. To create a script that does this is more complicated than just exporting the fc out as a table then creating a pandas dataframe. I need the nodes labeled correctly because when I put them back into the GIS as points, they don't necessarily overlay exactly with the raster patch IDs, since many of these patch IDs are not continuous and the centroid falls in a nodata cell
     
@@ -310,8 +220,8 @@ def calcBetweenness(results_directory, results_gdb, results_fc, fc_conn_pts):
     folders = os.listdir(results_directory)
     for folder in folders:
         
-        fc = os.path.join(results_directory, folder, results_gdb, fc_conn_pts)
-        c_fc = os.path.join(results_directory, folder, results_gdb, results_fc)
+        fc = os.path.join(results_directory, folder, project_gdb, fc_conn_pts)
+        c_fc = os.path.join(results_directory, folder, project_gdb, fc_conn_lines)
 
         fieldNames = [field.name for field in arcpy.ListFields(fc)]
         if "betweenness_centrality" in fieldNames:
@@ -324,9 +234,9 @@ def calcBetweenness(results_directory, results_gdb, results_fc, fc_conn_pts):
         # note: I would have prefered going to csv or txt first, but there was a problem with matplotlib library required
         temp_xls = os.path.join(results_directory, folder, "temp.xls")
         arcpy.TableToExcel_conversion(c_fc, temp_xls)
-        df = pd.read_excel(temp_xls, 'temp', header=0, usecols=['FromPatchID','ToPatchID','Quantity'])  #oddly, usecols is not in documentation for read_excel
+        df = pd.read_excel(temp_xls, 'temp', header=0, usecols=['from_id','to_id','prob'])  #oddly, usecols is not in documentation for read_excel
         # read pandas df in as networkX graph
-        G = nx.from_pandas_edgelist(df, 'FromPatchID', 'ToPatchID', ['Quantity'], nx.DiGraph())
+        G = nx.from_pandas_edgelist(df, 'from_id', 'to_id', ['prob'], nx.DiGraph())
         # explore the data
         # comment this out, but keep it available for reference
         #G.number_of_nodes()
@@ -341,13 +251,13 @@ def calcBetweenness(results_directory, results_gdb, results_fc, fc_conn_pts):
         #list(G.nodes(data=True))[0]
         #list(G.edges(data=True))[0]
         
-        bt = nx.betweenness_centrality(G, None, True, 'Quantity', False)
+        bt = nx.betweenness_centrality(G, None, True, 'prob', False)
         
         # add betweenness as a node attribute
         nx.set_node_attributes(G, bt, "bt")
         
         # output node dictionary to pandas dataframe then to csv:
-        df = pd.DataFrame(columns=['PatchID','bt'])    # create an empty dataframe with the column headers
+        df = pd.DataFrame(columns=['uID','bt'])    # create an empty dataframe with the column headers
         nd = list(G.nodes(data=True))
         i=0
         for v in bt:
@@ -358,7 +268,7 @@ def calcBetweenness(results_directory, results_gdb, results_fc, fc_conn_pts):
         
         # join to connectivity_metrics_patches fc
         arcpy.MakeFeatureLayer_management(fc, "out_lyr_temp")
-        arcpy.AddJoin_management("out_lyr_temp", "PatchID", temp_csv, "PatchID")
+        arcpy.AddJoin_management("out_lyr_temp", "uID", temp_csv, "uID")
         arcpy.CalculateField_management("out_lyr_temp", "betweenness_centrality", "!temp.csv.bt!", "PYTHON_9.3")
     
         # del input excel file, del output csv
@@ -373,11 +283,13 @@ def calcBetweenness(results_directory, results_gdb, results_fc, fc_conn_pts):
 # creates new fields in the Connectivity_metrics_patches feature class
 # Closeness: the reciprocal of the average shortest path distance to a node over all reachable nodes
 # I calculate two values of closeness using euclidean distance and quantity.
+# update: I use probability. Also, it's not euclidean distance since that information is never read in.
+# Instead, I think it is just considering any connection as equal to any other connection.
 #
 
-def calcCloseness(results_directory, results_gdb, results_fc, fc_conn_pts):
+def calcCloseness(results_directory, project_gdb, fc_conn_lines, fc_conn_pts):
     
-    # closeness works well for euclidean distance. I did distance with Quantity and it works, but I think I need to take the inverse. With normal distance, higher values of closeness indicates higher values of centrality. However, since higher quantity indicates being more close then I need to consider that lower values of closeness indicate higher centrality.
+    # closeness works well for distance. I did distance with Quantity and it works, but I think I need to take the inverse. With normal distance, higher values of closeness indicates higher values of centrality. However, since higher quantity indicates being more close then I need to consider that lower values of closeness indicate higher centrality.
     # for weighted closeness in networkx, do 1/quantity before calculating closeness
 
     arcpy.env.overwriteOutput = True
@@ -385,36 +297,36 @@ def calcCloseness(results_directory, results_gdb, results_fc, fc_conn_pts):
     folders = os.listdir(results_directory)
     for folder in folders:
         
-        fc = os.path.join(results_directory, folder, results_gdb, fc_conn_pts)
-        c_fc = os.path.join(results_directory, folder, results_gdb, results_fc)
+        fc = os.path.join(results_directory, folder, project_gdb, fc_conn_pts)
+        c_fc = os.path.join(results_directory, folder, project_gdb, fc_conn_lines)
 
         fieldNames = [field.name for field in arcpy.ListFields(fc)]
-        if "closeness_centrality_quantity" in fieldNames:
+        if "closeness_centrality_prob" in fieldNames:
             print folder + ":  closeness fields already exist"
             continue
         else:
             arcpy.AddField_management(fc, "closeness_centrality_distance", "DOUBLE")
-            arcpy.AddField_management(fc, "closeness_centrality_quantity", "DOUBLE")
+            arcpy.AddField_management(fc, "closeness_centrality_prob", "DOUBLE")
 
         # convert connectivity line feature class to xls, then to pandas df
         # note: I would have prefered going to csv or txt first, but there was a problem with matplotlib library required
         temp_xls = os.path.join(results_directory, folder, "temp.xls")
         arcpy.TableToExcel_conversion(c_fc, temp_xls)
-        df = pd.read_excel(temp_xls, 'temp', header=0, usecols=['FromPatchID','ToPatchID','Quantity'])  #oddly, usecols is not in documentation for read_excel
+        df = pd.read_excel(temp_xls, 'temp', header=0, usecols=['from_id','to_id','prob'])  #oddly, usecols is not in documentation for read_excel
         # read pandas df in as networkX graph
-        G = nx.from_pandas_edgelist(df, 'FromPatchID', 'ToPatchID', ['Quantity'], nx.DiGraph())
+        G = nx.from_pandas_edgelist(df, 'from_id', 'to_id', ['prob'], nx.DiGraph())
     
         # closeness with normal distance
         cc = nx.closeness_centrality(G, None, None, True)
         # closeness with quantity as distance
-        ccq = nx.closeness_centrality(G, None, 'Quantity', True)
+        ccq = nx.closeness_centrality(G, None, 'prob', True)
     
         # add metrics as node attributes
         nx.set_node_attributes(G, cc, "cc")
         nx.set_node_attributes(G, ccq, "ccq")
     
         # output node dictionary to pandas dataframe then to csv:
-        df = pd.DataFrame(columns=['PatchID','cc_d','cc_q'])    # create an empty dataframe with the column headers
+        df = pd.DataFrame(columns=['uID','cc_d','cc_q'])    # create an empty dataframe with the column headers
         nd = list(G.nodes(data=True))
         for v in range(len(nd)):
             df.loc[v] = [nd[v][0], nd[v][1]['cc'], nd[v][1]['ccq']]  # this accesses the node id and attribute values of the node list. Note that the attribute value is stored in a dictionary which is within a list
@@ -423,7 +335,7 @@ def calcCloseness(results_directory, results_gdb, results_fc, fc_conn_pts):
 
         # join to connectivity_metrics_patches fc
         arcpy.MakeFeatureLayer_management(fc, "out_lyr_temp")
-        arcpy.AddJoin_management("out_lyr_temp", "PatchID", temp_csv, "PatchID")
+        arcpy.AddJoin_management("out_lyr_temp", "uID", temp_csv, "uID")
         arcpy.CalculateField_management("out_lyr_temp", "closeness_centrality_distance", "!temp.csv.cc_d!", "PYTHON_9.3") 
         arcpy.CalculateField_management("out_lyr_temp", "closeness_centrality_quantity", '1/ !temp.csv.cc_q!', "PYTHON_9.3")   
     
@@ -440,14 +352,14 @@ def calcCloseness(results_directory, results_gdb, results_fc, fc_conn_pts):
 # This will help determine how much a node is connected to high scoring nodes (could help to identify zones)
 #
 
-def calcEigenvectorCentrality(results_directory, results_gdb, results_fc, fc_conn_pts):
+def calcEigenvectorCentrality(results_directory, project_gdb, fc_conn_lines, fc_conn_pts):
 
 
     folders = os.listdir(results_directory)
     for folder in folders:
         
-        fc = os.path.join(results_directory, folder, results_gdb, fc_conn_pts)
-        c_fc = os.path.join(results_directory, folder, results_gdb, results_fc)
+        fc = os.path.join(results_directory, folder, project_gdb, fc_conn_pts)
+        c_fc = os.path.join(results_directory, folder, project_gdb, fc_conn_lines)
 
         fieldNames = [field.name for field in arcpy.ListFields(fc)]
         if "eigenvector_centrality_in" in fieldNames:
@@ -460,18 +372,18 @@ def calcEigenvectorCentrality(results_directory, results_gdb, results_fc, fc_con
         # note: I would have prefered going to csv or txt first, but there was a problem with matplotlib library required
         temp_xls = os.path.join(results_directory, folder, "temp.xls")
         arcpy.TableToExcel_conversion(c_fc, temp_xls)
-        df = pd.read_excel(temp_xls, 'temp', header=0, usecols=['FromPatchID','ToPatchID','Quantity'])  #oddly, usecols is not in documentation for read_excel
+        df = pd.read_excel(temp_xls, 'temp', header=0, usecols=['from_id','to_id','prob'])  #oddly, usecols is not in documentation for read_excel
         # read pandas df in as networkX graph
-        G = nx.from_pandas_edgelist(df, 'FromPatchID', 'ToPatchID', ['Quantity'], nx.DiGraph())
+        G = nx.from_pandas_edgelist(df, 'from_id', 'to_id', ['prob'], nx.DiGraph())
     
         # eigenvector centrality
-        eci = nx.eigenvector_centrality(G, 1000, 1.0e-6, None,'Quantity')
+        eci = nx.eigenvector_centrality(G, 1000, 1.0e-6, None,'prob')
     
         # add metrics as node attributes
         nx.set_node_attributes(G, eci, "eci")
     
         # output node dictionary to pandas dataframe then to csv:
-        df = pd.DataFrame(columns=['PatchID','eci'])    # create an empty dataframe with the column headers
+        df = pd.DataFrame(columns=['uID','eci'])    # create an empty dataframe with the column headers
         nd = list(G.nodes(data=True))
         for v in range(len(nd)):
             df.loc[v] = [nd[v][0], nd[v][1]['eci']]  # this accesses the node id and attribute values of the node list. Note that the attribute value is stored in a dictionary which is within a list
@@ -480,7 +392,7 @@ def calcEigenvectorCentrality(results_directory, results_gdb, results_fc, fc_con
 
         # join to connectivity_metrics_patches fc
         arcpy.MakeFeatureLayer_management(fc, "out_lyr_temp")
-        arcpy.AddJoin_management("out_lyr_temp", "PatchID", temp_csv, "PatchID")
+        arcpy.AddJoin_management("out_lyr_temp", "uID", temp_csv, "uID")
         arcpy.CalculateField_management("out_lyr_temp", "eigenvector_centrality_in", "!temp.csv.eci!", "PYTHON_9.3") 
     
         arcpy.Delete_management(temp_xls)
@@ -499,13 +411,13 @@ def calcEigenvectorCentrality(results_directory, results_gdb, results_fc, fc_con
 # The out-degree centrality for a node v is the fraction of nodes its outgoing edges are connected to.
 #
 
-def calcDegreeCentrality(results_directory, results_gdb, results_fc, fc_conn_pts):
+def calcDegreeCentrality(results_directory, project_gdb, fc_conn_lines, fc_conn_pts):
 
     folders = os.listdir(results_directory)
     for folder in folders:
         
-        fc = os.path.join(results_directory, folder, results_gdb, fc_conn_pts)
-        c_fc = os.path.join(results_directory, folder, results_gdb, results_fc)
+        fc = os.path.join(results_directory, folder, project_gdb, fc_conn_pts)
+        c_fc = os.path.join(results_directory, folder, project_gdb, fc_conn_lines)
 
         fieldNames = [field.name for field in arcpy.ListFields(fc)]
         if "degree_centrality_all" in fieldNames:
@@ -520,9 +432,9 @@ def calcDegreeCentrality(results_directory, results_gdb, results_fc, fc_conn_pts
         # note: I would have prefered going to csv or txt first, but there was a problem with matplotlib library required
         temp_xls = os.path.join(results_directory, folder, "temp.xls")
         arcpy.TableToExcel_conversion(c_fc, temp_xls)
-        df = pd.read_excel(temp_xls, 'temp', header=0, usecols=['FromPatchID','ToPatchID','Quantity'])  #oddly, usecols is not in documentation for read_excel
+        df = pd.read_excel(temp_xls, 'temp', header=0, usecols=['from_id','to_id','prob'])  #oddly, usecols is not in documentation for read_excel
         # read pandas df in as networkX graph
-        G = nx.from_pandas_edgelist(df, 'FromPatchID', 'ToPatchID', ['Quantity'], nx.DiGraph())
+        G = nx.from_pandas_edgelist(df, 'from_id', 'to_id', ['prob'], nx.DiGraph())
     
         # degree centrality
         dca = nx.degree_centrality(G)
@@ -535,7 +447,7 @@ def calcDegreeCentrality(results_directory, results_gdb, results_fc, fc_conn_pts
         nx.set_node_attributes(G, dco, "dco")
     
         # output node dictionary to pandas dataframe then to csv:
-        df = pd.DataFrame(columns=['PatchID','dca','dci', 'dco'])    # create an empty dataframe with the column headers
+        df = pd.DataFrame(columns=['uID','dca','dci', 'dco'])    # create an empty dataframe with the column headers
         nd = list(G.nodes(data=True))
         for v in range(len(nd)):
             df.loc[v] = [nd[v][0], nd[v][1]['dca'], nd[v][1]['dci'], nd[v][1]['dco']]  # this accesses the node id and attribute values of the node list. Note that the attribute value is stored in a dictionary which is within a list
@@ -544,7 +456,7 @@ def calcDegreeCentrality(results_directory, results_gdb, results_fc, fc_conn_pts
 
         # join to connectivity_metrics_patches fc
         arcpy.MakeFeatureLayer_management(fc, "out_lyr_temp")
-        arcpy.AddJoin_management("out_lyr_temp", "PatchID", temp_csv, "PatchID")
+        arcpy.AddJoin_management("out_lyr_temp", "uID", temp_csv, "uID")
         arcpy.CalculateField_management("out_lyr_temp", "degree_centrality_all", "!temp.csv.dca!", "PYTHON_9.3") 
         arcpy.CalculateField_management("out_lyr_temp", "degree_centrality_in", "!temp.csv.dci!", "PYTHON_9.3")
         arcpy.CalculateField_management("out_lyr_temp", "degree_centrality_out", "!temp.csv.dco!", "PYTHON_9.3")
@@ -562,13 +474,13 @@ def calcDegreeCentrality(results_directory, results_gdb, results_fc, fc_conn_pts
 # directions to the total number of edges attached to node u.
 #
 
-def calcReciprocity(results_directory, results_gdb, results_fc, fc_conn_pts):
+def calcReciprocity(results_directory, project_gdb, fc_conn_lines, fc_conn_pts):
 
     folders = os.listdir(results_directory)
     for folder in folders:
         
-        fc = os.path.join(results_directory, folder, results_gdb, fc_conn_pts)
-        c_fc = os.path.join(results_directory, folder, results_gdb, results_fc)
+        fc = os.path.join(results_directory, folder, project_gdb, fc_conn_pts)
+        c_fc = os.path.join(results_directory, folder, project_gdb, fc_conn_lines)
 
         fieldNames = [field.name for field in arcpy.ListFields(fc)]
         if "reciprocity" in fieldNames:
@@ -581,9 +493,9 @@ def calcReciprocity(results_directory, results_gdb, results_fc, fc_conn_pts):
         # note: I would have prefered going to csv or txt first, but there was a problem with matplotlib library required
         temp_xls = os.path.join(results_directory, folder, "temp.xls")
         arcpy.TableToExcel_conversion(c_fc, temp_xls)
-        df = pd.read_excel(temp_xls, 'temp', header=0, usecols=['FromPatchID','ToPatchID','Quantity'])  #oddly, usecols is not in documentation for read_excel
+        df = pd.read_excel(temp_xls, 'temp', header=0, usecols=['from_id','to_id','prob'])  #oddly, usecols is not in documentation for read_excel
         # read pandas df in as networkX graph
-        G = nx.from_pandas_edgelist(df, 'FromPatchID', 'ToPatchID', ['Quantity'], nx.DiGraph())
+        G = nx.from_pandas_edgelist(df, 'from_id', 'to_id', ['prob'], nx.DiGraph())
     
         # eigenvector centrality
         nd = list(G.nodes(data=False))
@@ -593,7 +505,7 @@ def calcReciprocity(results_directory, results_gdb, results_fc, fc_conn_pts):
         nx.set_node_attributes(G, rec, "rec")
     
         # output node dictionary to pandas dataframe then to csv:
-        df = pd.DataFrame(columns=['PatchID','rec'])    # create an empty dataframe with the column headers
+        df = pd.DataFrame(columns=['uID','rec'])    # create an empty dataframe with the column headers
         nd = list(G.nodes(data=True))
         for v in range(len(nd)):
             df.loc[v] = [nd[v][0], nd[v][1]['rec']]  # this accesses the node id and attribute values of the node list. Note that the attribute value is stored in a dictionary which is within a list
@@ -602,7 +514,7 @@ def calcReciprocity(results_directory, results_gdb, results_fc, fc_conn_pts):
 
         # join to connectivity_metrics_patches fc
         arcpy.MakeFeatureLayer_management(fc, "out_lyr_temp")
-        arcpy.AddJoin_management("out_lyr_temp", "PatchID", temp_csv, "PatchID")
+        arcpy.AddJoin_management("out_lyr_temp", "uID", temp_csv, "uID")
         arcpy.CalculateField_management("out_lyr_temp", "reciprocity", "!temp.csv.rec!", "PYTHON_9.3") 
     
         arcpy.Delete_management(temp_xls)
@@ -617,29 +529,28 @@ def calcReciprocity(results_directory, results_gdb, results_fc, fc_conn_pts):
 # creates a new field in the Connectivity_metrics_connections feature class
 #
 
-def calcDirection(results_directory, results_gdb, fc_conn_lines):
+def calcDirection(results_directory, project_gdb, fc_conn_lines):
     
     folders = os.listdir(results_directory)
     for folder in folders:
+        # check if field exists, add column for timeOfConnection
+        fc = os.path.join(results_directory, folder, project_gdb, fc_conn_lines)
+        fieldNames = [field.name for field in arcpy.ListFields(fc)]
+        if "BEARING" in fieldNames:
+            print folder + ": bearing field already exists"
+            continue    # skips this folder in the for loop
 
-            # check if field exists, add column for timeOfConnection
-            fc = os.path.join(results_directory, folder, results_gdb, fc_conn_lines)
-            fieldNames = [field.name for field in arcpy.ListFields(fc)]
-            if "BEARING" in fieldNames:
-                print folder + ": bearing field already exists"
-                continue    # skips this folder in the for loop
+        arcpy.AddGeometryAttributes_management(fc, "LINE_BEARING")
 
-            arcpy.AddGeometryAttributes_management(fc, "LINE_BEARING")
-
-            with arcpy.da.UpdateCursor(fc, ["FromPatchID", "ToPatchID", "BEARING"]) as cursor:
-                for row in cursor:
-                    if row[2] is None:
-                        row[2] = 0.0
-                    if row[0] == row[1]:
-                        row[2] = None
-                    cursor.updateRow(row)
+        with arcpy.da.UpdateCursor(fc, ["from_id", "to_id", "BEARING"]) as cursor:
+            for row in cursor:
+                if row[2] is None:
+                    row[2] = 0.0
+                if row[0] == row[1]:
+                    row[2] = None
+                cursor.updateRow(row)
             
-            print folder + ": direction calculation complete"
+        print folder + ": direction calculation complete"
 
 ## mergeFCs ##
 #
@@ -650,22 +561,26 @@ def calcDirection(results_directory, results_gdb, fc_conn_lines):
 # This accounts for when I add new simulation results and new attribute fields.
 #
 
-def mergeFCs(results_directory, results_gdb, results_fc, fc_conn_lines, fc_conn_pts, output_gdb):
+def mergeFCs(results_directory, project_gdb, fc_conn_lines, fc_conn_pts, merged_gdb):
+    
+    mgdb = os.path.join(os.path.dirname(results_directory), merged_gdb) #dirname gets the parent directory. I don't want to store the merged gdb in the same directory as the results.
+    if not arcpy.Exists(mgdb):
+        arcpy.CreateFileGDB_management(os.path.dirname(results_directory), merged_gdb)
 
     fcs_ln_ALL = []
     fcs_pt_ALL = []
 
     folders = os.listdir(results_directory)
     for folder in folders:
-        gdb = os.path.join(results_directory, folder, results_gdb)
-        fc_ln = os.path.join(results_directory, folder, results_gdb, fc_conn_lines)
-        fc_pt = os.path.join(results_directory, folder, results_gdb, fc_conn_pts)
+        gdb = os.path.join(results_directory, folder, project_gdb)
+        fc_ln = os.path.join(results_directory, folder, project_gdb, fc_conn_lines)
+        fc_pt = os.path.join(results_directory, folder, project_gdb, fc_conn_pts)
         fcs_ln_ALL.append(fc_ln)
         fcs_pt_ALL.append(fc_pt)
 
     time = datetime.datetime.now().strftime('%Y%m%d_%H%M')
-    fcs_ln_ALL_output = os.path.join(output_gdb, fc_conn_lines + "_" + time)
-    fcs_pt_ALL_output = os.path.join(output_gdb, fc_conn_pts + "_" + time)
+    fcs_ln_ALL_output = os.path.join(mgdb, fc_conn_lines + "_" + time)
+    fcs_pt_ALL_output = os.path.join(mgdb, fc_conn_pts + "_" + time)
 
     arcpy.Merge_management(fcs_ln_ALL, fcs_ln_ALL_output)
     arcpy.Merge_management(fcs_pt_ALL, fcs_pt_ALL_output)
@@ -677,11 +592,11 @@ def mergeFCs(results_directory, results_gdb, results_fc, fc_conn_lines, fc_conn_
 # deletes specified fields from specified fc
 #
 
-def deleteField(results_directory, results_gdb, fc, fields):
+def deleteField(results_directory, project_gdb, fc, fields):
 
     folders = os.listdir(results_directory)
     for folder in folders:
-        fc_fdel = os.path.join(results_directory, folder, results_gdb, fc)
+        fc_fdel = os.path.join(results_directory, folder, project_gdb, fc)
         fieldNames = [field.name for field in arcpy.ListFields(fc_fdel)]
         for field in fields:
             if field in fieldNames:
@@ -697,12 +612,12 @@ def deleteField(results_directory, results_gdb, fc, fields):
 # It's not really that nuclear since it doesn't delete any of the simulation results.
 #
 
-def deleteFeatureClasses(results_directory, results_gdb,fc_conn_lines, fc_conn_pts):
+def deleteFeatureClasses(results_directory, project_gdb, fc_conn_lines, fc_conn_pts):
 
     folders = os.listdir(results_directory)
     for folder in folders:
-        fc_ln = os.path.join(results_directory, folder, results_gdb, fc_conn_lines)
-        fc_pt = os.path.join(results_directory, folder, results_gdb, fc_conn_pts)
+        fc_ln = os.path.join(results_directory, folder, project_gdb, fc_conn_lines)
+        fc_pt = os.path.join(results_directory, folder, project_gdb, fc_conn_pts)
         arcpy.Delete_management(fc_ln)
         arcpy.Delete_management(fc_pt)
 
@@ -713,83 +628,23 @@ def deleteFeatureClasses(results_directory, results_gdb,fc_conn_lines, fc_conn_p
 ## Program Start ##
 ###             ###
 
-#####
-### Add connectivity metric feature classes where they don't yet exist
-#####
+createMetricFCs(results_directory, results_shp, patch_centroids, fc_conn_lines, fc_conn_pts, project_gdb)
+createDateField(results_directory, project_gdb, fc_conn_lines, fc_conn_pts)
 
-createMetricFCs(results_directory, results_gdb, results_fc, patch_centroids, fc_conn_lines, fc_conn_pts)
+calcSourceSink(results_directory, project_gdb, fc_conn_lines, fc_conn_pts)
+calcBetweenness(results_directory, project_gdb, fc_conn_lines, fc_conn_pts)
+calcCloseness(results_directory, project_gdb, fc_conn_lines, fc_conn_pts)
+calcEigenvectorCentrality(results_directory, project_gdb, fc_conn_lines, fc_conn_pts)
+calcDegreeCentrality(results_directory, project_gdb, fc_conn_lines, fc_conn_pts)
+calcReciprocity(results_directory, project_gdb, fc_conn_lines, fc_conn_pts)
+calcDirection(results_directory, project_gdb, fc_conn_lines)
 
-#####
-### Create date field
-#####
+mergeFCs(results_directory, project_gdb, fc_conn_lines, fc_conn_pts, merged_gdb)
 
-createDateField(results_directory, results_gdb, fc_conn_lines, fc_conn_pts)
-
-#####
-### Calculate the time that a connection was made
-#####
-
-calcTiming(results_directory, results_gdb, fc_conn_lines, pickle_file, mortality_rate, time_step, summ_period, mrt)
-
-#####
-### Calculate source-sink metrics
-#####
-
-calcSourceSink(results_directory, results_gdb, results_fc, fc_conn_pts)
-
-#####
-### Calculate betweenness
-#####
-
-calcBetweenness(results_directory, results_gdb, results_fc, fc_conn_pts)
-
-#####
-### Calculate closeness centrality
-#####
-
-calcCloseness(results_directory, results_gdb, results_fc, fc_conn_pts)
-
-#####
-### Calculate eigenvector centrality
-#####
-
-calcEigenvectorCentrality(results_directory, results_gdb, results_fc, fc_conn_pts)
-
-#####
-### Calculate degree centrality
-#####
-
-calcDegreeCentrality(results_directory, results_gdb, results_fc, fc_conn_pts)
-
-#####
-### Calculate reciprocity
-#####
-
-calcReciprocity(results_directory, results_gdb, results_fc, fc_conn_pts)
-
-#####
-### Calculate the bearing(direction) of connections
-#####
-
-calcDirection(results_directory, results_gdb, fc_conn_lines)
-
-
-#####
-### Merge fcs to a combined dataset
-#####
-
-mergeFCs(results_directory, results_gdb, results_fc, fc_conn_lines, fc_conn_pts, output_gdb)
-
-#####
-### Delete fields from specific fc
-#####
-
-###deleteField(results_directory, results_gdb, fc_conn_pts, ["vitality_closeness","constraint"])
-
+###deleteField(results_directory, project_gdb, fc_conn_pts, ["vitality_closeness","constraint"])
 ####
 ## NUCLEAR OPTION (keep this commented out) - deletes feature classes
 ####
-
-###deleteFeatureClasses(results_directory, results_gdb, fc_conn_lines, fc_conn_pts)
+###deleteFeatureClasses(results_directory, project_gdb, fc_conn_lines, fc_conn_pts)
 
 # NOTE: if you need to recalculate any metrics for fields that are already created you can just comment out the "continue" in the if statement. Everything else should recalculate since the "addField" is done in the else statement.
