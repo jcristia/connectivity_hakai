@@ -337,7 +337,7 @@ def calcCloseness(results_directory, project_gdb, fc_conn_lines, fc_conn_pts):
         arcpy.MakeFeatureLayer_management(fc, "out_lyr_temp")
         arcpy.AddJoin_management("out_lyr_temp", "uID", temp_csv, "uID")
         arcpy.CalculateField_management("out_lyr_temp", "closeness_centrality_distance", "!temp.csv.cc_d!", "PYTHON_9.3") 
-        arcpy.CalculateField_management("out_lyr_temp", "closeness_centrality_quantity", '1/ !temp.csv.cc_q!', "PYTHON_9.3")   
+        arcpy.CalculateField_management("out_lyr_temp", "closeness_centrality_prob", '1/ !temp.csv.cc_q!', "PYTHON_9.3")   
     
         arcpy.Delete_management(temp_xls)
         arcpy.Delete_management(temp_csv)
@@ -601,8 +601,7 @@ def deleteField(results_directory, project_gdb, fc, fields):
         for field in fields:
             if field in fieldNames:
                 arcpy.DeleteField_management(fc_fdel, field)
-
-        print folder + ": field deletion complete"
+                print folder + ": field deletion complete"
 
 ## NUCLEAR delete ##
 #
@@ -648,3 +647,12 @@ mergeFCs(results_directory, project_gdb, fc_conn_lines, fc_conn_pts, merged_gdb)
 ###deleteFeatureClasses(results_directory, project_gdb, fc_conn_lines, fc_conn_pts)
 
 # NOTE: if you need to recalculate any metrics for fields that are already created you can just comment out the "continue" in the if statement. Everything else should recalculate since the "addField" is done in the else statement.
+
+
+
+### Community detection ###
+#import igraph as ig
+#import leidenalg as la
+#G = ig.Graph.Famous('Zachary')
+#partition = la.find_partition(G, la.ModularityVertexPartition)
+#ig.plot(partition)
