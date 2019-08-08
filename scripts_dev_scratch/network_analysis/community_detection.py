@@ -78,9 +78,13 @@ partition.quality()
 # so that actually go through and get each community and vertice names, you have to use subgraph
 
 df_c = pd.DataFrame(columns=['patch_id','community_id'])
+#for p in range(len(partition)):
+#    for v in partition.subgraph(p).vs['name']:
+#        df_c = df_c.append({'patch_id':v, 'community_id': p}, ignore_index=True)
 for p in range(len(partition)):
-    for v in partition.subgraph(p).vs['name']:
-        df_c = df_c.append({'patch_id':v, 'community_id': p}, ignore_index=True)
+    if len(partition.subgraph(p).vs['name'])>1:
+        for v in partition.subgraph(p).vs['name']:
+            df_c = df_c.append({'patch_id':v, 'community_id': p}, ignore_index=True)
 df_c.to_csv(r'C:\Users\jcristia\Documents\GIS\MSc_Projects\Hakai\scripts_dev_scratch\network_analysis\df_c.csv', index=False)
 
 # Not ideal, but now you need to run another script to join this to a feature class.
