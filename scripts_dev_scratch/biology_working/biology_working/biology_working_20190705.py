@@ -5,6 +5,8 @@
 # University of British Columbia
 # 2019-04-19
 
+# Environment
+# C:\Miniconda3\envs\biology_opendrift
 
 # note: you will get some pandas "settingwithcopywarning"s. These are ok.
 # warning: "A value is trying to be set on a copy of a slice from a DataFrame"
@@ -435,7 +437,7 @@ def calc_mortality(mortality_rate, traj, timestep, origin_dest, time_step_output
 
             # append this selection to mortality_p with the timestep that they were killed
             df = pd.DataFrame({'traj_id':mortality_selection, 'mortstep':i})
-            mortality_p = mortality_p.append(df, ignore_index=True, sort=True)
+            mortality_p = mortality_p.append(df, ignore_index=True)
 
     # join to origin_dest
     origin_dest_mort = origin_dest.merge(mortality_p, on='traj_id', how='outer')

@@ -23,7 +23,7 @@ o.add_reader([reader_basemap, reader_hakai])
 from datetime import datetime
 from datetime import timedelta
 time_step = timedelta(hours=1)
-num_steps = 24
+num_steps = 2
 for i in range(num_steps):
     o.seed_from_shapefile(r'C:\Users\jcristia\Documents\GIS\MSc_Projects\Hakai\scripts_runs\hakai_margot\spatial\hakai_margot_reproject\hakai_polys_1rockyintertidal.shp', number=2000, time=reader_hakai.start_time + i*time_step)
 
@@ -35,8 +35,8 @@ o.set_config('drift:scheme', 'euler')
 o.run(end_time=reader_hakai.end_time, time_step=30, time_step_output=1800,
       outfile=r'C:\Users\jcristia\Documents\GIS\MSc_Projects\Hakai\scripts_runs\hakai_margot\hakai_margot\1rockyintertidal\betweensites\output\rockyint_20190501_1.nc', export_variables=["age_seconds", "land_binary_mask"])
 print o
-#o.plot()
-#o.animation()
+o.plot()
+o.animation()
 
 #o.plot(filename=r'C:\Users\jcristia\Documents\GIS\MSc_Projects\Hakai\scripts\biology_working\output\run1_20190415.png')
 #o.animation(filename=r'C:\Users\jcristia\Documents\GIS\MSc_Projects\Hakai\scripts\biology_working\output\run1_20190415.mp4', fps=10)

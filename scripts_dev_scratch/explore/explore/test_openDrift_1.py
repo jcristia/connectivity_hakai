@@ -5,11 +5,11 @@ from opendrift.models.openoil import OpenOil
 o = OpenOil(loglevel=0)
 
 from opendrift.readers import reader_netCDF_CF_generic
-reader_norkyst = reader_netCDF_CF_generic.Reader(r'C:\Python27\ArcGISx6410.3\Lib\site-packages\opendrift\tests\test_data\16Nov2015_NorKyst_z_surface\norkyst800_subset_16Nov2015.nc')
+reader_norkyst = reader_netCDF_CF_generic.Reader(r'C:\Miniconda3\envs\opendrift_p2\Lib\site-packages\opendrift-master\tests\test_data\16Nov2015_NorKyst_z_surface\norkyst800_subset_16Nov2015.nc')
 print reader_norkyst
 reader_norkyst.plot()
 
-reader_arctic20 = reader_netCDF_CF_generic.Reader(r'C:\Python27\ArcGISx6410.3\Lib\site-packages\opendrift\tests\test_data\2Feb2016_Nordic_sigma_3d\Arctic20_1to5Feb_2016.nc')
+reader_arctic20 = reader_netCDF_CF_generic.Reader(r'C:\Miniconda3\envs\opendrift_p2\Lib\site-packages\opendrift-master\tests\test_data\2Feb2016_Nordic_sigma_3d\Arctic20_1to5Feb_2016.nc')
 print reader_arctic20
 reader_arctic20.plot()
 

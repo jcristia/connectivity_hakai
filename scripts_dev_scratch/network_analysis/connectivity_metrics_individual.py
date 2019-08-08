@@ -1,5 +1,8 @@
 """ This script calculates connectivity metrics using the resulting connectivity lines """
 
+# environment
+# C:\Miniconda2\envs\network_analysis
+
 ## Modules ##
 import networkx as nx
 import pandas as pd
@@ -647,12 +650,3 @@ mergeFCs(results_directory, project_gdb, fc_conn_lines, fc_conn_pts, merged_gdb)
 ###deleteFeatureClasses(results_directory, project_gdb, fc_conn_lines, fc_conn_pts)
 
 # NOTE: if you need to recalculate any metrics for fields that are already created you can just comment out the "continue" in the if statement. Everything else should recalculate since the "addField" is done in the else statement.
-
-
-
-### Community detection ###
-#import igraph as ig
-#import leidenalg as la
-#G = ig.Graph.Famous('Zachary')
-#partition = la.find_partition(G, la.ModularityVertexPartition)
-#ig.plot(partition)
