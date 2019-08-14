@@ -17,6 +17,8 @@ for dim in dataset.dimensions.values():
 for var in dataset.variables.values():
     print(var)
 
+for name in dataset.ncattrs():
+    print name + ": " + getattr(dataset,name)
 
 siglay = dataset.variables["siglay"][:]
 siglay[:,0]
