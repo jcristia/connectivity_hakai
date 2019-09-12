@@ -11,15 +11,15 @@ from opendrift.readers import reader_basemap_landmask
 
 # test with just area around Hakai for now
 reader_basemap = reader_basemap_landmask.Reader(
-                       llcrnrlon=-123.97, llcrnrlat=48.42,
-                       urcrnrlon=-122.24, urcrnrlat=49.91,
+                       llcrnrlon=-142.0, llcrnrlat=42.0,
+                       urcrnrlon=-121.0, urcrnrlat=60.6,
                        resolution='f', projection='merc')
 o.add_reader([reader_basemap, reader_salishsea])
 
 from datetime import datetime
 from datetime import timedelta
 
-o.seed_elements(lon=-123.27, lat=49.01, number=100, time=reader_salishsea.start_time+timedelta(days=15))
+o.seed_elements(lon=-123.27, lat=49.01, number=100, time=reader_salishsea.start_time+timedelta(days=19.5))
 o.elements_scheduled
 
 o.set_config('drift:current_uncertainty_uniform', 1)

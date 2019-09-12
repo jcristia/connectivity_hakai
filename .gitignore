@@ -4,6 +4,7 @@
 !scripts_dev_scratch/
 !scripts_runs/
 !scripts_tools/
+!spatial/
 
 # then exclude specific folder and file types
 output
@@ -14,7 +15,13 @@ outputs
 *.pyproj
 
 mxd
-spatial
+spatial/seagrass/seagrass_all
+spatial/seagrass/seagrass_hakai_archive
+spatial/boundaries
+spatial/fvcom_results
+spatial/model_grids
+*.csv
+*.xlsx
 *.ini
 *.gdb
 *.mxd
