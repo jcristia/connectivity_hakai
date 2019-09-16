@@ -61,10 +61,17 @@ sg_multi = arcpy.MultipartToSinglepart_management(sg_erase, "seagrass_all_04MULT
 sg_elimpart = arcpy.EliminatePolygonPart_management(sg_multi, "seagrass_all_05ELIM", "PERCENT","", 99, "CONTAINED_ONLY")
 
 
+# erase with comox polygon
+# the issue is here that after all these steps I get a super long polygon that extends for all of Denman Island to Comox. It crosses a shallow (but too deep for seagrass) channel. Talking to Coreen, it is unlikely that there is seagrass here. The polygons are also old and look like there modeled from bathymetry.
+# http://fishing-app.gpsnauticalcharts.com/i-boating-fishing-web-app/fishing-marine-charts-navigation.html?title=Baynes%20Sound%20boating%20app&fbclid=IwAR2vThmPXTBxRTRg80iuF_OVC8MtXl_n3PG1mkYqnnbKBmW--26OQZWq_Zk#13.14/49.6556/-124.8670
+# Would be an interesting free dive!
+erase_comox = r'C:\Users\jcristia\Documents\GIS\MSc_Projects\Hakai\spatial\seagrass\seagrass_prep\seagrass_prep.gdb\comox'
+sg_erase_comox = arcpy.Erase_analysis(sg_elimpart, erase_comox, "seagrass_all_05ERASEC")
+
 # aggregate polygons
 # this will help cut down on the number of polys. There are many areas where the polygons may have been mapped at high resolution and therefore there are many small polygons in an area. These should be combined. The aggregate tool works surprisingly well.
 # use coastline as barrier
-sg_agg = arcpy.AggregatePolygons_cartography(sg_elimpart, "seagrass_all_06AGGREGATE", 100, 0, 0,"NON_ORTHOGONAL", barrier_features=coast)
+sg_agg = arcpy.AggregatePolygons_cartography(sg_erase_comox, "seagrass_all_06AGGREGATE", 100, 0, 0,"NON_ORTHOGONAL", barrier_features=coast)
 
 
 # do a final check by doing multi-to-single and eliminate holes again
