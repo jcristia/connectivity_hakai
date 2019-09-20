@@ -9,7 +9,6 @@ print (reader_salishsea)
 
 from opendrift.readers import reader_basemap_landmask
 
-# test with just area around Hakai for now
 reader_basemap = reader_basemap_landmask.Reader(
                        llcrnrlon=-142.0, llcrnrlat=42.0,
                        urcrnrlon=-121.0, urcrnrlat=60.6,
