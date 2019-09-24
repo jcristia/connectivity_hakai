@@ -24,6 +24,7 @@ import fiona
 import pandas as pd
 import geopandas
 import math
+import ogr
 import logging
 logging.basicConfig(level=logging.INFO)
 
@@ -32,10 +33,12 @@ logging.basicConfig(level=logging.INFO)
 # if specific structure of input names change (seagrass_.nc vs seagrass_2019_.nc), then check additional variables at bottom
 ###################
 
-sg_path = r'C:\Users\jcristia\Documents\GIS\MSc_Projects\Hakai\spatial\seagrass\seagrass_prep\seagrass_testTEMP' # where input shapefiles are stored (for cluster runs, this will be the same folder as the script)
+sg_path = r'C:\Users\jcristia\Documents\GIS\MSc_Projects\Hakai\spatial\seagrass\seagrass_prep\seagrass_testTEMP' # where input shapefiles are stored (for cluster runs, this will be the same folder as the script).
+# its assumed that every shapefile within this folder were used in the opendrift simulations. Other file types can be present here, but you can't have shapefiles that weren't used.
 input_folder = r'C:\Users\jcristia\Documents\GIS\MSc_Projects\Hakai\scripts_dev_scratch\hydro_models_format\outputs' # where nc and npy files are output
 output_folder = r'C:\Users\jcristia\Documents\GIS\MSc_Projects\Hakai\scripts_dev_scratch\hydro_models_format\outputs\shp'
-seagrass_buff = r'C:\Users\jcristia\Documents\GIS\MSc_Projects\Hakai\spatial\seagrass\seagrass_all\seagrass_buff_10FINAL.shp'  # buffered by 20m just for checking settlement. This is to account for seagrass polys that have slivers between coastline
+seagrass_og = r'C:\Users\jcristia\Documents\GIS\MSc_Projects\Hakai\spatial\seagrass\seagrass_all\seagrass_all_17FINAL.shp' # we still need the full original seagrass dataset for other checks even if we are using split up versions
+seagrass_buff = r'C:\Users\jcristia\Documents\GIS\MSc_Projects\Hakai\spatial\seagrass\seagrass_all\seagrass_buff_10FINAL.shp'  # buffered by 100m just for checking settlement. This is to account for seagrass polys that have slivers between coastline
 
 seagrass_crs = {'init' :'epsg:3005'}
 
@@ -46,9 +49,8 @@ precomp = 4
 
 # get these values from the simulation script
 time_step_output = 0.5 # in hours. It will be in seconds in the opendrift script
-particles_per_release = 2000
 interval_of_release = 1 # in hours (interval can't be less than time step output) (if no delayed release then just put same value as time_step_output)
-num_of_releases = 24 # if no delayed release then just put 1
+num_of_releases = 2 # if no delayed release then just put 1
 
 # allow particles to settle?
 settlement_apply = True
@@ -104,7 +106,7 @@ def get_particle_originPoly(seagrass, lon, lat, traj, seagrass_crs, lat_np, lon_
     origin_temp = origin[origin.uID.isnull()]
 
     logging.info("Getting origin coordinates for points that didn't fall within a polygon. The following particles...")
-    print origin_temp
+    print(origin_temp)
 
     for row in origin_temp.itertuples(index=True):
         index = row[0]
@@ -459,11 +461,11 @@ def out_shp_dest_points(origin_dest_mort, seagrass_crs, shp_out, date_start):
     od.to_file(filename=shp_out, driver='ESRI Shapefile')
 
 #### create connection lines ####
-def connection_lines(shp_out, seagrass, seagrass_crs, conn_lines_out, date_start):
+def connection_lines(shp_out, seagrass_og, seagrass_crs, conn_lines_out, date_start):
 
     logging.info("writing connection lines to shapefile")
     od = geopandas.read_file(shp_out)
-    sg = geopandas.read_file(seagrass)
+    sg = geopandas.read_file(seagrass_og)
     
     # get each unique combination of originID and destID and get count of particles that survived
     od_unique = od[(od.dest_id != -1) & (od.mortstep == -1)].groupby(['uID','dest_id']).size().reset_index(name='Freq')
@@ -500,7 +502,7 @@ def connection_lines(shp_out, seagrass, seagrass_crs, conn_lines_out, date_start
         # get centroid of from and to patches
         centroid_origin = sg[sg.uID == row[0]].centroid
         centroid_dest = sg[sg.uID == row[1]].centroid
-    
+
         if row[0] != row[1]:
             geom_line = LineString([centroid_origin.tolist()[0], centroid_dest.tolist()[0]])
         else:
@@ -519,8 +521,8 @@ def connection_lines(shp_out, seagrass, seagrass_crs, conn_lines_out, date_start
     connection_lines.to_file(filename=conn_lines_out, driver='ESRI Shapefile')
 
 #### output patch centroids to shapefile (for use in network analysis) ####
-def out_shp_patch_centroids(seagrass, patch_centroids_out, seagrass_crs, date_start):
-    sg = geopandas.read_file(seagrass)
+def out_shp_patch_centroids(seagrass_og, patch_centroids_out, seagrass_crs, date_start):
+    sg = geopandas.read_file(seagrass_og)
     # copy poly to new GeoDataFrame
     points = sg.copy()
     # change the geometry
@@ -561,6 +563,13 @@ for shp in shapefiles:
 
     seagrass = shp
 
+    # get number of particles per release
+    shp = ogr.Open(shp)
+    lyr = shp.GetLayer(0)
+    for feature in lyr:
+        particles_per_release = int(feature.GetField('particle') / 10)
+        break
+
     # output shapefile location
     shp_out = os.path.join(output_folder, 'dest_biology_pts_' + base + '.shp')
     conn_lines_out = os.path.join(output_folder, 'connectivity_' + base + '.shp')
@@ -594,5 +603,5 @@ for shp in shapefiles:
     # outputs
     out_shp_dest_points(origin_dest_mort, seagrass_crs, shp_out, date_start)
     if settlement_apply:
-        connection_lines(shp_out, seagrass, seagrass_crs, conn_lines_out, date_start)
-    out_shp_patch_centroids(seagrass, patch_centroids_out, seagrass_crs, date_start)
+        connection_lines(shp_out, seagrass_og, seagrass_crs, conn_lines_out, date_start)
+    out_shp_patch_centroids(seagrass_og, patch_centroids_out, seagrass_crs, date_start)
