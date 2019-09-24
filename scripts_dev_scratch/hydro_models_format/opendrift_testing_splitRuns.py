@@ -1,6 +1,9 @@
 # test running with multiple seagrass shapefiles
 # splitting up seagrass to minimize time to run
 
+
+# BEFORE I RUN ON CLUSTER, I will need to change print statement to python 2
+
 import sys
 import numpy as np
 from datetime import datetime
@@ -31,9 +34,9 @@ reader_hakai = reader_netCDF_CF_unstructured.Reader(file_hakai)
 reader_salish = reader_netCDF_CF_unstructured.Reader(file_salish)
 reader_nep = reader_NEMO_pacific_JC.Reader(file_nep)
 
-print(reader_hakai)
-print(reader_salish)
-print(reader_nep)
+#print(reader_hakai)
+#print(reader_salish)
+#print(reader_nep)
 
 reader_basemap = reader_basemap_landmask.Reader(
                        llcrnrlon=-142.0, llcrnrlat=42.0,
@@ -65,7 +68,7 @@ for shp in shapefiles:
         break
 
     # REMOVE THIS LATER:
-    particles = int(particles / 3)
+    particles = int(particles / 10)
 
     o = OceanDrift(loglevel=0)
     o.add_reader([reader_basemap, reader_salish, reader_hakai, reader_nep])
@@ -73,7 +76,7 @@ for shp in shapefiles:
     time_step = timedelta(hours=4)
     num_steps = 2
     for i in range(num_steps):
-        o.seed_from_shapefile(shp, number=particles, time=reader_nep.start_time + i*time_step)
+        o.seed_from_shapefile(shp, number=particles, time=reader_nep.start_time + timedelta(days=3) + i*time_step)
 
     # export starting coordinates to use in biology script
     # it is easier to do it here than deal with inconsistencies of the output nc file:
@@ -89,6 +92,6 @@ for shp in shapefiles:
           outfile='outputs/seagrass_' + base + '.nc', export_variables=["age_seconds", "land_binary_mask"])
     print(o)
 
-    o.plot(filename='outputs/runX_20190919_' + base + '.png')
+    o.plot(filename='outputs/runX_' + base + '.png')
 
 #####################################################

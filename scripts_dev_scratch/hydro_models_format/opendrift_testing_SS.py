@@ -13,12 +13,20 @@ reader_basemap = reader_basemap_landmask.Reader(
                        llcrnrlon=-142.0, llcrnrlat=42.0,
                        urcrnrlon=-121.0, urcrnrlat=60.6,
                        resolution='f', projection='merc')
+
 o.add_reader([reader_basemap, reader_salishsea])
 
 from datetime import datetime
 from datetime import timedelta
 
 o.seed_elements(lon=-123.27, lat=49.01, number=100, time=reader_salishsea.start_time+timedelta(days=19.5))
+
+#shp = r'C:\Users\jcristia\Documents\GIS\MSc_Projects\Hakai\scripts_dev_scratch\hydro_models_format\ss_sg_poly_TESTTEMP_ERASEx100.shp'
+#time_step = timedelta(hours=4)
+#num_steps = 2
+#for i in range(num_steps):
+#    o.seed_from_shapefile(shp, number=500, time=reader_salishsea.start_time + timedelta(days=19.75) + i*time_step)
+
 o.elements_scheduled
 
 o.set_config('drift:current_uncertainty_uniform', 1)
