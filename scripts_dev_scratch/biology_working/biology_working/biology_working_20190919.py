@@ -549,6 +549,8 @@ for file in sg_files:
     if file.endswith('.shp'):
         shapefiles.append(os.path.join(sg_path, file))
 
+patch_centroids_out = os.path.join(output_folder, 'patch_centroids.shp')
+
 for shp in shapefiles:
 
     # get base name
@@ -573,7 +575,6 @@ for shp in shapefiles:
     # output shapefile location
     shp_out = os.path.join(output_folder, 'dest_biology_pts_' + base + '.shp')
     conn_lines_out = os.path.join(output_folder, 'connectivity_' + base + '.shp')
-    patch_centroids_out = os.path.join(output_folder, 'patch_centroids_' + base + '.shp')
 
 
     dataset = nc.Dataset(nc_output, "r+")
@@ -604,4 +605,6 @@ for shp in shapefiles:
     out_shp_dest_points(origin_dest_mort, seagrass_crs, shp_out, date_start)
     if settlement_apply:
         connection_lines(shp_out, seagrass_og, seagrass_crs, conn_lines_out, date_start)
-    out_shp_patch_centroids(seagrass_og, patch_centroids_out, seagrass_crs, date_start)
+
+
+out_shp_patch_centroids(seagrass_og, patch_centroids_out, seagrass_crs, date_start)
