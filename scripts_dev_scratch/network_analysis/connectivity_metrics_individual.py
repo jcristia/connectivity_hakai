@@ -1,4 +1,5 @@
 """ This script calculates connectivity metrics using the resulting connectivity lines """
+''' Run the file prep script before this script '''
 
 # environment
 # C:\Miniconda2\envs\network_analysis
