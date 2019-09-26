@@ -24,22 +24,22 @@ import fiona
 import pandas as pd
 import geopandas
 import math
+import ogr
 import logging
 logging.basicConfig(level=logging.INFO)
 
 ###################
 # variables to set on each run
+# if specific structure of input names change (seagrass_.nc vs seagrass_2019_.nc), then check additional variables at bottom
 ###################
 
-# output from Opendrift
-nc_output = r'C:\Users\jcristia\Documents\GIS\MSc_Projects\Hakai\scripts_runs\hakai_margot\hakai_margot\1rockyintertidal\betweensites\output/rockyint_20190501_1.nc'
+sg_path = r'C:\Users\jcristia\Documents\GIS\MSc_Projects\Hakai\spatial\seagrass\seagrass_prep\seagrass_testTEMP' # where input shapefiles are stored (for cluster runs, this will be the same folder as the script).
+# its assumed that every shapefile within this folder were used in the opendrift simulations. Other file types can be present here, but you can't have shapefiles that weren't used.
+input_folder = r'C:\Users\jcristia\Documents\GIS\MSc_Projects\Hakai\scripts_dev_scratch\hydro_models_format\outputs' # where nc and npy files are output
+output_folder = r'C:\Users\jcristia\Documents\GIS\MSc_Projects\Hakai\scripts_dev_scratch\hydro_models_format\outputs\shp'
+seagrass_og = r'C:\Users\jcristia\Documents\GIS\MSc_Projects\Hakai\spatial\seagrass\seagrass_all\seagrass_all_17FINAL.shp' # we still need the full original seagrass dataset for other checks even if we are using split up versions
+seagrass_buff = r'C:\Users\jcristia\Documents\GIS\MSc_Projects\Hakai\spatial\seagrass\seagrass_all\seagrass_buff_10FINAL.shp'  # buffered by 100m just for checking settlement. This is to account for seagrass polys that have slivers between coastline
 
-# the lat and lon numpy files of starting coordinates saved from the opendrift run
-lat_np = r'C:\Users\jcristia\Documents\GIS\MSc_Projects\Hakai\scripts_runs\hakai_margot\hakai_margot\1rockyintertidal\betweensites\output/lat_1.npy'
-lon_np = r'C:\Users\jcristia\Documents\GIS\MSc_Projects\Hakai\scripts_runs\hakai_margot\hakai_margot\1rockyintertidal\betweensites\output/lon_1.npy'
-
-seagrass = r'C:\Users\jcristia\Documents\GIS\MSc_Projects\Hakai\scripts_runs\hakai_margot\spatial\hakai_margot_reproject\hakai_polys_1rockyintertidal.shp'
-seagrass_buff = r'C:\Users\jcristia\Documents\GIS\MSc_Projects\Hakai\scripts_runs\hakai_margot\spatial\hakai_margot_reproject\hakai_polys_1rockyintertidal_buff20.shp' # buffered by 20m just for checking settlement. This is to account for seagrass polys that have slivers between coastline
 seagrass_crs = {'init' :'epsg:3005'}
 
 # if I am using 'stranding' in opendrift, then I likely need at least a small precompetency period because everything just ends up settling at home otherwise
@@ -49,9 +49,8 @@ precomp = 4
 
 # get these values from the simulation script
 time_step_output = 0.5 # in hours. It will be in seconds in the opendrift script
-particles_per_release = 2000
 interval_of_release = 1 # in hours (interval can't be less than time step output) (if no delayed release then just put same value as time_step_output)
-num_of_releases = 24 # if no delayed release then just put 1
+num_of_releases = 2 # if no delayed release then just put 1
 
 # allow particles to settle?
 settlement_apply = True
@@ -63,10 +62,6 @@ mort_period = 8 # after how many time_step_outputs to apply mortality rate (MAKE
 # is this a backwards run?
 backwards_run = False
 
-# output shapefile location
-shp_out = r'C:\Users\jcristia\Documents\GIS\MSc_Projects\Hakai\scripts_runs\hakai_margot\hakai_margot\1rockyintertidal\betweensites\output\shp/dest_biology_pts_20190502.shp'
-conn_lines_out = r'C:\Users\jcristia\Documents\GIS\MSc_Projects\Hakai\scripts_runs\hakai_margot\hakai_margot\1rockyintertidal\betweensites\output\shp/connectivity_20190502.shp'
-patch_centroids_out = r'C:\Users\jcristia\Documents\GIS\MSc_Projects\Hakai\scripts_runs\hakai_margot\hakai_margot\1rockyintertidal\betweensites\output\shp/patch_centroids.shp'
 
 
 
@@ -111,7 +106,7 @@ def get_particle_originPoly(seagrass, lon, lat, traj, seagrass_crs, lat_np, lon_
     origin_temp = origin[origin.uID.isnull()]
 
     logging.info("Getting origin coordinates for points that didn't fall within a polygon. The following particles...")
-    print origin_temp
+    print(origin_temp)
 
     for row in origin_temp.itertuples(index=True):
         index = row[0]
@@ -447,34 +442,6 @@ def calc_mortality(mortality_rate, traj, timestep, origin_dest, time_step_output
     return origin_dest_mort, mortality_p
 
 
-###################
-# RUN biology
-# run all functions, even if you aren't applying settlement and/or mortality
-###################
-
-dataset = nc.Dataset(nc_output, "r+")
-lon = dataset.variables["lon"]
-lat = dataset.variables["lat"]
-traj = dataset.variables["trajectory"]
-status = dataset.variables["status"]
-timestep = dataset.variables["time"]
-date_start = dataset.time_coverage_start
-
-origin = get_particle_originPoly(seagrass, lon, lat, traj, seagrass_crs, lat_np, lon_np, backwards_run)
-
-if precomp == 0:
-    timesteps_with_release = None
-    precomp_end_timestep = None
-    precomp_range = None
-    particle_range = None
-else:
-    timesteps_with_release, precomp_end_timestep, precomp_range, particle_range = calc_precomp(precomp, time_step_output, particles_per_release, interval_of_release, num_of_releases, traj)
-
-origin_dest = settlement(settlement_apply, origin, seagrass_buff, timestep, status, lon, lat, traj, seagrass_crs, precomp, precomp_range, particle_range, mortality_rate)
-
-origin_dest = get_destination_coords(origin_dest, traj, lon, lat, timestep, seagrass_crs, status)
-
-origin_dest_mort, mortality_p = calc_mortality(mortality_rate, traj, timestep, origin_dest, time_step_output, mort_period, interval_of_release, num_of_releases)
 
 
 ###################
@@ -494,11 +461,11 @@ def out_shp_dest_points(origin_dest_mort, seagrass_crs, shp_out, date_start):
     od.to_file(filename=shp_out, driver='ESRI Shapefile')
 
 #### create connection lines ####
-def connection_lines(shp_out, seagrass, seagrass_crs, conn_lines_out, date_start):
+def connection_lines(shp_out, seagrass_og, seagrass_crs, conn_lines_out, date_start):
 
     logging.info("writing connection lines to shapefile")
     od = geopandas.read_file(shp_out)
-    sg = geopandas.read_file(seagrass)
+    sg = geopandas.read_file(seagrass_og)
     
     # get each unique combination of originID and destID and get count of particles that survived
     od_unique = od[(od.dest_id != -1) & (od.mortstep == -1)].groupby(['uID','dest_id']).size().reset_index(name='Freq')
@@ -535,7 +502,7 @@ def connection_lines(shp_out, seagrass, seagrass_crs, conn_lines_out, date_start
         # get centroid of from and to patches
         centroid_origin = sg[sg.uID == row[0]].centroid
         centroid_dest = sg[sg.uID == row[1]].centroid
-    
+
         if row[0] != row[1]:
             geom_line = LineString([centroid_origin.tolist()[0], centroid_dest.tolist()[0]])
         else:
@@ -554,8 +521,8 @@ def connection_lines(shp_out, seagrass, seagrass_crs, conn_lines_out, date_start
     connection_lines.to_file(filename=conn_lines_out, driver='ESRI Shapefile')
 
 #### output patch centroids to shapefile (for use in network analysis) ####
-def out_shp_patch_centroids(seagrass, patch_centroids_out, seagrass_crs, date_start):
-    sg = geopandas.read_file(seagrass)
+def out_shp_patch_centroids(seagrass_og, patch_centroids_out, seagrass_crs, date_start):
+    sg = geopandas.read_file(seagrass_og)
     # copy poly to new GeoDataFrame
     points = sg.copy()
     # change the geometry
@@ -565,7 +532,79 @@ def out_shp_patch_centroids(seagrass, patch_centroids_out, seagrass_crs, date_st
     points['date_start'] = date_start
     points.to_file(filename=patch_centroids_out, driver='ESRI Shapefile')
 
-out_shp_dest_points(origin_dest_mort, seagrass_crs, shp_out, date_start)
-if settlement_apply:
-    connection_lines(shp_out, seagrass, seagrass_crs, conn_lines_out, date_start)
-out_shp_patch_centroids(seagrass, patch_centroids_out, seagrass_crs, date_start)
+
+
+
+
+###################
+# RUN biology
+# run all functions, even if you aren't applying settlement and/or mortality
+###################
+
+# cycle through number of shapefiles
+import os
+sg_files = os.listdir(sg_path)
+shapefiles = []
+for file in sg_files:
+    if file.endswith('.shp'):
+        shapefiles.append(os.path.join(sg_path, file))
+
+patch_centroids_out = os.path.join(output_folder, 'patch_centroids.shp')
+
+for shp in shapefiles:
+
+    # get base name
+    base = os.path.splitext(os.path.basename(shp))[0]
+
+    # output from Opendrift
+    nc_output = os.path.join(input_folder, 'seagrass_' + base + '.nc')
+
+    # the lat and lon numpy files of starting coordinates saved from the opendrift run
+    lat_np = os.path.join(input_folder, 'lat_' + base + '.npy')
+    lon_np = os.path.join(input_folder, 'lon_' + base + '.npy')
+
+    seagrass = shp
+
+    # get number of particles per release
+    shp = ogr.Open(shp)
+    lyr = shp.GetLayer(0)
+    for feature in lyr:
+        particles_per_release = int(feature.GetField('particle') / 10)
+        break
+
+    # output shapefile location
+    shp_out = os.path.join(output_folder, 'dest_biology_pts_' + base + '.shp')
+    conn_lines_out = os.path.join(output_folder, 'connectivity_' + base + '.shp')
+
+
+    dataset = nc.Dataset(nc_output, "r+")
+    lon = dataset.variables["lon"]
+    lat = dataset.variables["lat"]
+    traj = dataset.variables["trajectory"]
+    status = dataset.variables["status"]
+    timestep = dataset.variables["time"]
+    date_start = dataset.time_coverage_start
+
+    origin = get_particle_originPoly(seagrass, lon, lat, traj, seagrass_crs, lat_np, lon_np, backwards_run)
+
+    if precomp == 0:
+        timesteps_with_release = None
+        precomp_end_timestep = None
+        precomp_range = None
+        particle_range = None
+    else:
+        timesteps_with_release, precomp_end_timestep, precomp_range, particle_range = calc_precomp(precomp, time_step_output, particles_per_release, interval_of_release, num_of_releases, traj)
+
+    origin_dest = settlement(settlement_apply, origin, seagrass_buff, timestep, status, lon, lat, traj, seagrass_crs, precomp, precomp_range, particle_range, mortality_rate)
+
+    origin_dest = get_destination_coords(origin_dest, traj, lon, lat, timestep, seagrass_crs, status)
+
+    origin_dest_mort, mortality_p = calc_mortality(mortality_rate, traj, timestep, origin_dest, time_step_output, mort_period, interval_of_release, num_of_releases)
+
+    # outputs
+    out_shp_dest_points(origin_dest_mort, seagrass_crs, shp_out, date_start)
+    if settlement_apply:
+        connection_lines(shp_out, seagrass_og, seagrass_crs, conn_lines_out, date_start)
+
+
+out_shp_patch_centroids(seagrass_og, patch_centroids_out, seagrass_crs, date_start)
