@@ -1,6 +1,8 @@
 # Format outputs from biology_opendrift for input to connectivity metrics script.
 # For runs where seagrass datasets were split up, there will be multiple output shapefiles that need to be merged together.
 
+# NOTE: merging the destination pts is optional. This will eventually have 32 million particles, and I don't use this for anything yet.
+
 import os
 import arcpy
 

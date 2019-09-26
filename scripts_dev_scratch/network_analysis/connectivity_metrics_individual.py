@@ -19,11 +19,17 @@ arcpy.env.overwriteOutput = True
 
 ### Results directory ###
 #
-# The directory that has all of the results folders for each run of the simualation
+# The directory that has all of the results folders for each run of the simualation.
+# I've set this up thinking that there will be multiple simulation results by date within a folder. However,
+# as of right now the current path is just referring to one simulation's results. This is fine,
+# but if I want to merge metrics of multiple simulations (last function) then I will need to consider
+# a different folder structure that I may just move around manually. It's hard to anticipate my
+# future needs at this point. Since network analysis will take place on my machine and not on the cluster
+# I will be manually moving things around anyways.
 #
 ##
 
-results_directory = r'C:\Users\jcristia\Documents\GIS\MSc_Projects\Hakai\scripts_dev_scratch\network_analysis\output'
+results_directory = r'C:\Users\jcristia\Documents\GIS\MSc_Projects\Hakai\scripts_dev_scratch\hydro_models_format\outputs\shp'
 
 ### Paths and file names ###
 #
@@ -76,7 +82,11 @@ merged_gdb = r"metrics_merged.gdb"
 
 def createMetricFCs(results_directory, results_shp, patch_centroids, fc_conn_lines, fc_conn_pts, project_gdb):
     # go through each results folder. This gets the intermediate folder between results_directory and results_gdb. This is the one labeled by date and time.
-    folders = os.listdir(results_directory)
+    dirs = os.listdir(results_directory)
+    folders = []
+    for folder in dirs:
+        if os.path.isdir(os.path.join(results_directory, folder)):
+            folders.append(folder)
     for folder in folders:
         gdb = os.path.join(results_directory, folder, project_gdb)
         in_shp_lines = os.path.join(results_directory, folder, results_shp)
@@ -104,7 +114,11 @@ def createMetricFCs(results_directory, results_shp, patch_centroids, fc_conn_lin
 
 def createDateField(results_directory, project_gdb, fc_conn_lines, fc_conn_pts):
 
-    folders = os.listdir(results_directory)
+    dirs = os.listdir(results_directory)
+    folders = []
+    for folder in dirs:
+        if os.path.isdir(os.path.join(results_directory, folder)):
+            folders.append(folder)
     for folder in folders:
         gdb = os.path.join(results_directory, folder, project_gdb)
         fc_ln = os.path.join(results_directory, folder, project_gdb, fc_conn_lines)
@@ -154,7 +168,11 @@ def createDateField(results_directory, project_gdb, fc_conn_lines, fc_conn_pts):
 def calcSourceSink(results_directory, project_gdb, fc_conn_lines, fc_conn_pts):
 
     # add source-sink fields
-    folders = os.listdir(results_directory)
+    dirs = os.listdir(results_directory)
+    folders = []
+    for folder in dirs:
+        if os.path.isdir(os.path.join(results_directory, folder)):
+            folders.append(folder)
     for folder in folders:
         fc = os.path.join(results_directory, folder, project_gdb, fc_conn_pts)
         fieldNames = [field.name for field in arcpy.ListFields(fc)]
@@ -221,7 +239,11 @@ def calcBetweenness(results_directory, project_gdb, fc_conn_lines, fc_conn_pts):
     
     arcpy.env.overwriteOutput = True
 
-    folders = os.listdir(results_directory)
+    dirs = os.listdir(results_directory)
+    folders = []
+    for folder in dirs:
+        if os.path.isdir(os.path.join(results_directory, folder)):
+            folders.append(folder)
     for folder in folders:
         
         fc = os.path.join(results_directory, folder, project_gdb, fc_conn_pts)
@@ -298,7 +320,11 @@ def calcCloseness(results_directory, project_gdb, fc_conn_lines, fc_conn_pts):
 
     arcpy.env.overwriteOutput = True
 
-    folders = os.listdir(results_directory)
+    dirs = os.listdir(results_directory)
+    folders = []
+    for folder in dirs:
+        if os.path.isdir(os.path.join(results_directory, folder)):
+            folders.append(folder)
     for folder in folders:
         
         fc = os.path.join(results_directory, folder, project_gdb, fc_conn_pts)
@@ -359,7 +385,11 @@ def calcCloseness(results_directory, project_gdb, fc_conn_lines, fc_conn_pts):
 def calcEigenvectorCentrality(results_directory, project_gdb, fc_conn_lines, fc_conn_pts):
 
 
-    folders = os.listdir(results_directory)
+    dirs = os.listdir(results_directory)
+    folders = []
+    for folder in dirs:
+        if os.path.isdir(os.path.join(results_directory, folder)):
+            folders.append(folder)
     for folder in folders:
         
         fc = os.path.join(results_directory, folder, project_gdb, fc_conn_pts)
@@ -417,7 +447,11 @@ def calcEigenvectorCentrality(results_directory, project_gdb, fc_conn_lines, fc_
 
 def calcDegreeCentrality(results_directory, project_gdb, fc_conn_lines, fc_conn_pts):
 
-    folders = os.listdir(results_directory)
+    dirs = os.listdir(results_directory)
+    folders = []
+    for folder in dirs:
+        if os.path.isdir(os.path.join(results_directory, folder)):
+            folders.append(folder)
     for folder in folders:
         
         fc = os.path.join(results_directory, folder, project_gdb, fc_conn_pts)
@@ -480,7 +514,11 @@ def calcDegreeCentrality(results_directory, project_gdb, fc_conn_lines, fc_conn_
 
 def calcReciprocity(results_directory, project_gdb, fc_conn_lines, fc_conn_pts):
 
-    folders = os.listdir(results_directory)
+    dirs = os.listdir(results_directory)
+    folders = []
+    for folder in dirs:
+        if os.path.isdir(os.path.join(results_directory, folder)):
+            folders.append(folder)
     for folder in folders:
         
         fc = os.path.join(results_directory, folder, project_gdb, fc_conn_pts)
@@ -535,7 +573,11 @@ def calcReciprocity(results_directory, project_gdb, fc_conn_lines, fc_conn_pts):
 
 def calcDirection(results_directory, project_gdb, fc_conn_lines):
     
-    folders = os.listdir(results_directory)
+    dirs = os.listdir(results_directory)
+    folders = []
+    for folder in dirs:
+        if os.path.isdir(os.path.join(results_directory, folder)):
+            folders.append(folder)
     for folder in folders:
         # check if field exists, add column for timeOfConnection
         fc = os.path.join(results_directory, folder, project_gdb, fc_conn_lines)
@@ -574,7 +616,11 @@ def mergeFCs(results_directory, project_gdb, fc_conn_lines, fc_conn_pts, merged_
     fcs_ln_ALL = []
     fcs_pt_ALL = []
 
-    folders = os.listdir(results_directory)
+    dirs = os.listdir(results_directory)
+    folders = []
+    for folder in dirs:
+        if os.path.isdir(os.path.join(results_directory, folder)):
+            folders.append(folder)
     for folder in folders:
         gdb = os.path.join(results_directory, folder, project_gdb)
         fc_ln = os.path.join(results_directory, folder, project_gdb, fc_conn_lines)
@@ -598,7 +644,11 @@ def mergeFCs(results_directory, project_gdb, fc_conn_lines, fc_conn_pts, merged_
 
 def deleteField(results_directory, project_gdb, fc, fields):
 
-    folders = os.listdir(results_directory)
+    dirs = os.listdir(results_directory)
+    folders = []
+    for folder in dirs:
+        if os.path.isdir(os.path.join(results_directory, folder)):
+            folders.append(folder)
     for folder in folders:
         fc_fdel = os.path.join(results_directory, folder, project_gdb, fc)
         fieldNames = [field.name for field in arcpy.ListFields(fc_fdel)]
@@ -617,7 +667,11 @@ def deleteField(results_directory, project_gdb, fc, fields):
 
 def deleteFeatureClasses(results_directory, project_gdb, fc_conn_lines, fc_conn_pts):
 
-    folders = os.listdir(results_directory)
+    dirs = os.listdir(results_directory)
+    folders = []
+    for folder in dirs:
+        if os.path.isdir(os.path.join(results_directory, folder)):
+            folders.append(folder)
     for folder in folders:
         fc_ln = os.path.join(results_directory, folder, project_gdb, fc_conn_lines)
         fc_pt = os.path.join(results_directory, folder, project_gdb, fc_conn_pts)
@@ -642,7 +696,8 @@ calcDegreeCentrality(results_directory, project_gdb, fc_conn_lines, fc_conn_pts)
 calcReciprocity(results_directory, project_gdb, fc_conn_lines, fc_conn_pts)
 calcDirection(results_directory, project_gdb, fc_conn_lines)
 
-mergeFCs(results_directory, project_gdb, fc_conn_lines, fc_conn_pts, merged_gdb)
+#mergeFCs(results_directory, project_gdb, fc_conn_lines, fc_conn_pts, merged_gdb)
+## make sure the folder structure is right before using this. Basically just need to make sure that you have multiple result folders in the same results_directory. This isn't my default setup right now, so I may just need to manually move results together in the future. We'll see.
 
 ###deleteField(results_directory, project_gdb, fc_conn_pts, ["vitality_closeness","constraint"])
 ####

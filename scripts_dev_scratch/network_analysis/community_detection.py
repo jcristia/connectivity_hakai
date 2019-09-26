@@ -9,6 +9,9 @@
 
 # environment: community_detection
 
+
+# TODO (maybe): Make this and the community_detection_join.py script loop over multiple folders of results, similar to the connectivity_metrics_individual.py script
+
 import igraph as ig
 import leidenalg as la
 import pandas as pd
