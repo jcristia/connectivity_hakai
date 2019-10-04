@@ -33,12 +33,20 @@ logging.basicConfig(level=logging.INFO)
 # if specific structure of input names change (seagrass_.nc vs seagrass_2019_.nc), then check additional variables at bottom
 ###################
 
-sg_path = r'C:\Users\jcristia\Documents\GIS\MSc_Projects\Hakai\spatial\seagrass\seagrass_prep\seagrass_testTEMP' # where input shapefiles are stored (for cluster runs, this will be the same folder as the script).
+sg_path = r'C:\Users\jcristia\Documents\GIS\MSc_Projects\Hakai\spatial\seagrass\seagrass_prep\seagrass_testTEMP' # where input shapefiles are stored
 # its assumed that every shapefile within this folder were used in the opendrift simulations. Other file types can be present here, but you can't have shapefiles that weren't used.
 input_folder = r'C:\Users\jcristia\Documents\GIS\MSc_Projects\Hakai\scripts_dev_scratch\hydro_models_format\outputs' # where nc and npy files are output
-output_folder = r'C:\Users\jcristia\Documents\GIS\MSc_Projects\Hakai\scripts_dev_scratch\hydro_models_format\outputs\shp'
+output_folder = r'C:\Users\jcristia\Documents\GIS\MSc_Projects\Hakai\scripts_dev_scratch\hydro_models_format\outputs\shp' # where to save shp outputs from this script
 seagrass_og = r'C:\Users\jcristia\Documents\GIS\MSc_Projects\Hakai\spatial\seagrass\seagrass_all\seagrass_all_17FINAL.shp' # we still need the full original seagrass dataset for other checks even if we are using split up versions
 seagrass_buff = r'C:\Users\jcristia\Documents\GIS\MSc_Projects\Hakai\spatial\seagrass\seagrass_all\seagrass_buff_10FINAL.shp'  # buffered by 100m just for checking settlement. This is to account for seagrass polys that have slivers between coastline
+
+#cluster version:
+# sg_path = r'/home/jcristia/runs/seagrass_20190926/seagrass_split'
+# input_folder = r'/home/jcristia/runs/seagrass_20190926/outputs'
+# output_folder = r'/home/jcristia/runs/seagrass_20190926/outputs/shp'
+# seagrass_og = r'/home/jcristia/runs/seagrass_20190926/seagrass_og/seagrass_all_17FINAL.shp'
+# seagrass_buff = r'/home/jcristia/runs/seagrass_20190926/seagrass_buff/seagrass_buff_10FINAL.shp'
+
 
 seagrass_crs = {'init' :'epsg:3005'}
 
