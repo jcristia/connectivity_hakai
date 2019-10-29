@@ -9,7 +9,7 @@ import pandas as pd
 arcpy.env.workspace = r'C:\Users\jcristia\Documents\GIS\MSc_Projects\Hakai\scripts_dev_scratch\network_analysis\output\conefor_test\metrics.gdb'
 
 # Conefor executable:
-coneforExe = r'C:\Users\jcristia\Desktop\CONEFOR\conefor_directed\conefor.exe'
+coneforExe = r'C:\Program Files\CONEFOR\conefor_directed\conefor.exe'
 
 # inputs / outputs
 seagrass_og = r'C:\Users\jcristia\Documents\GIS\MSc_Projects\Hakai\scripts_dev_scratch\network_analysis\output\conefor_test\metrics.gdb\seagrass_merge_erase_clip_multisingle_rholes_less2000_hakai' # note: for real runs I can just reference the original seagrass dataset
