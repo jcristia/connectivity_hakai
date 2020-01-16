@@ -1,3 +1,12 @@
+# currently working on running biology script for different lengths of time
+# e.g. netcdf file is for 60 days, but I want to run it for 30, 10, 3, 1 days
+# also with 1 day, not all particles can be treated the same since they are released throughout the day,
+# so I need to figure out how to stagger short runs
+
+
+
+
+
 # Script to add bio part of a biophysical model
 # This script takes the output netcdf file from an Opendrift simulation and modifies particle end trajectories by consdering precompetency period, settlement, and mortality.
 
@@ -39,7 +48,6 @@ input_folder = r'/home/jcristia/runs/seagrass_20200113/outputs' # where nc and n
 output_folder = r'/home/jcristia/runs/seagrass_20200113/outputs/shp' # where to save shp outputs from this script
 seagrass_og = r'/home/jcristia/runs/seagrass_20200113/seagrass_og/seagrass_all_19FINAL.shp' # we still need the full original seagrass dataset for other checks even if we are using split up versions
 seagrass_buff = r'/home/jcristia/runs/seagrass_20200113/seagrass_buff/seagrass_buff_10FINAL.shp'  # buffered by 100m just for checking settlement. This is to account for seagrass polys that have slivers between coastline
-
 seagrass_crs = {'init' :'epsg:3005'}
 
 # if I am using 'stranding' in opendrift, then I likely need at least a small precompetency period because everything just ends up settling at home otherwise
@@ -62,6 +70,15 @@ mort_period = 8 # after how many time_step_outputs to apply mortality rate (MAKE
 # is this a backwards run?
 backwards_run = False
 
+# PLD limit
+# I run opendrift simulations for what I expect the max PLD to be that I am considering. Then in this script I can set a smaller PLD and see which connections are made if I had only run the simulation up to a certain timestep.
+# I need to do PLDs all at once on each run of this script because mortality is random and I want all PLDs done on one random selection of particles instead of on different selections.
+# Provide PLDs in a list in units of days
+plds = [1, 5, 10, 15, 30, 45, 60]
+
+# Particle factor
+# for testing purposes only, otherwise keep set to 1
+particle_factor = 1
 
 
 
@@ -223,7 +240,7 @@ def settlement(settlement_apply, origin, seagrass_buff, timestep, status, lon, l
     if settlement_apply: # if this is false, then it will just join the blank dest_df to origin, and the get_destination_coords function will fill in the rest
         for i in range(1,len(timestep)):
 
-            output_str = "settlement time step " + str(i) + " of " + str(len(timestep))
+            output_str = "settlement time step " + str(i) + " of " + str(len(timestep)-1)
             logging.info(output_str)
             # get traj ids for particles that are active or where they were active on the previous step (just stranded)
             # NOTE: special case I may need to fix in the future: when running backwards I had a particle that was 1 on the very first time step. However, since it always seems to mask them after they are 1, I could just select where == 1 and not worry about if the previous step was 0.
@@ -441,6 +458,42 @@ def calc_mortality(mortality_rate, traj, timestep, origin_dest, time_step_output
 
     return origin_dest_mort, mortality_p
 
+###################
+# add in starting time interval
+# added 2020-01-13 so that we know the full time period of particles that may not have been released at the first time step
+# This allows us calculate different connections for different PLDs
+###################
+
+def start_time_int(origin_dest_mort, timesteps_with_release, particle_range, traj):
+    
+    logging.info("adding in particle start time")
+
+    df = pd.DataFrame()
+    df['traj_id'] = list(traj)
+
+    # starting time step of each particle
+    # this could probably be optimized
+    time_int_start = []
+    for t in range(len(timesteps_with_release)):
+        for particle in range(particle_range[t][0],particle_range[t][1]):
+            time_int_start.append(timesteps_with_release[t])
+    
+    df['time_int_s'] = time_int_start # name shortened for shapefile
+
+    # need to coerce merge. traj_id must be numeric. The dest_df data types were all "object"
+    # this was not a problem on windows, but when running on the cluster it woud give an error
+    df = df.infer_objects()
+    origin_dest_mort = origin_dest_mort.infer_objects()
+    df.traj_id = df.traj_id.astype('float')
+    origin_dest_mort.traj_id = origin_dest_mort.traj_id.astype('float')   
+    origin_dest_mort = origin_dest_mort.merge(df, on='traj_id')
+
+    return origin_dest_mort
+
+
+
+
+
 
 
 
@@ -461,14 +514,17 @@ def out_shp_dest_points(origin_dest_mort, seagrass_crs, shp_out, date_start):
     od.to_file(filename=shp_out, driver='ESRI Shapefile')
 
 #### create connection lines ####
-def connection_lines(shp_out, seagrass_og, seagrass_crs, conn_lines_out, date_start):
+def connection_lines(shp_out, seagrass_og, seagrass_crs, conn_lines_out, date_start, pld_int, pld):
 
     logging.info("writing connection lines to shapefile")
     od = geopandas.read_file(shp_out)
     sg = geopandas.read_file(seagrass_og)
-    
+
+    ### on od, select particles where time_int_s minus time_int is less than or equal to PLD
+    od_pld = od[(od.time_int - od.time_int_s <= pld_int)]
+
     # get each unique combination of originID and destID and get count of particles that survived
-    od_unique = od[(od.dest_id != -1) & (od.mortstep == -1)].groupby(['uID','dest_id']).size().reset_index(name='Freq')
+    od_unique = od_pld[(od_pld.dest_id != -1) & (od_pld.mortstep == -1)].groupby(['uID','dest_id']).size().reset_index(name='Freq')
     # how to read this:
     # first we select from od the ones that settled and survived
     # then we groupby unique combinations of uID and dest_id
@@ -476,7 +532,7 @@ def connection_lines(shp_out, seagrass_og, seagrass_crs, conn_lines_out, date_st
     # this normally makes uID the index and doesn't have a column name for count (the series we created), so we reset index and give the count a column name
 
     # df of time interval where first settlement occurred
-    df_time_int = od[(od.dest_id != -1) & (od.mortstep == -1)].groupby(['uID','dest_id'])['time_int'].min().reset_index(name='time_int')
+    df_time_int = od_pld[(od_pld.dest_id != -1) & (od_pld.mortstep == -1)].groupby(['uID','dest_id'])['time_int'].min().reset_index(name='time_int')
     
     # set up for creating self connection lines. Size of circle lines based on amount settled and average area of all patches.
     def CircleCoords(xLeft, yCenter, r, n): # credit: MGET. Also, see circle_coords.xlsx for explanation of equation.
@@ -490,7 +546,7 @@ def connection_lines(shp_out, seagrass_og, seagrass_crs, conn_lines_out, date_st
     radius = math.sqrt(area_mean/math.pi)
     
     # for each unique combinaton create line from centroids
-    connection_lines = pd.DataFrame(columns=['from_id','to_id','quantity','totalori','prob','time_int', 'line'])
+    connection_lines = pd.DataFrame(columns=['from_id','to_id','quantity','totalori','prob','time_int', 'line', 'pld'])
     conn_i = 0
     for row in od_unique.itertuples(index=False):
         # get total amount of particles released from patch
@@ -512,7 +568,7 @@ def connection_lines(shp_out, seagrass_og, seagrass_crs, conn_lines_out, date_st
             radius_adj = radius * quantity_norm
             geom_line = LineString(CircleCoords(centroid_origin.x.tolist()[0], centroid_origin.y.tolist()[0], radius_adj, 90))
     
-        connection_lines.loc[conn_i] = [row[0],row[1],float(row[2]),float(total),row[2]/float(total), time_int,geom_line]
+        connection_lines.loc[conn_i] = [row[0],row[1],float(row[2]),float(total),row[2]/float(total), time_int,geom_line, pld]
         conn_i += 1
     
     connection_lines['date_start'] = date_start   
@@ -569,15 +625,8 @@ for shp in shapefiles:
     shp = ogr.Open(shp)
     lyr = shp.GetLayer(0)
     for feature in lyr:
-        particles_per_release = feature.GetField('particles')
-        #particles_per_release = int(feature.GetField('particles') / 10)
-        #particles_per_release = 5000
+        particles_per_release = int(feature.GetField('particles') / particle_factor)
         break
-
-    # output shapefile location
-    shp_out = os.path.join(output_folder, 'dest_biology_pts_' + base + '.shp')
-    conn_lines_out = os.path.join(output_folder, 'connectivity_' + base + '.shp')
-
 
     dataset = nc.Dataset(nc_output, "r+")
     lon = dataset.variables["lon"]
@@ -603,10 +652,22 @@ for shp in shapefiles:
 
     origin_dest_mort, mortality_p = calc_mortality(mortality_rate, traj, timestep, origin_dest, time_step_output, mort_period, interval_of_release, num_of_releases)
 
-    # outputs
+    origin_dest_mort = start_time_int(origin_dest_mort, timesteps_with_release, particle_range, traj)
+
+    ### outputs
+
+    shp_out = os.path.join(output_folder, 'dest_biology_pts_' + base + '.shp')
     out_shp_dest_points(origin_dest_mort, seagrass_crs, shp_out, date_start)
+
     if settlement_apply:
-        connection_lines(shp_out, seagrass_og, seagrass_crs, conn_lines_out, date_start)
+        for pld in plds:
+            # check that pld is not longer than length of timestep
+            pld_int = (pld * 24) / time_step_output
+            if pld_int > len(timestep):
+                logging.error("PLD provided is greater than length of timestep")
+                break
+            conn_lines_out = os.path.join(output_folder, 'connectivity_' + base + '_pld' + str(pld) + '.shp')
+            connection_lines(shp_out, seagrass_og, seagrass_crs, conn_lines_out, date_start, pld_int, pld)
 
 
 out_shp_patch_centroids(seagrass_og, patch_centroids_out, seagrass_crs, date_start)

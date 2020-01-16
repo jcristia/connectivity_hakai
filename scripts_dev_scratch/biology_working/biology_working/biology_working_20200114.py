@@ -76,7 +76,9 @@ backwards_run = False
 # Provide PLDs in a list in units of days
 plds = [1, 5, 10, 15]
 
-
+# Particle factor
+# for testing purposes only, otherwise keep set to 1
+particle_factor = 1
 
 
 
@@ -238,7 +240,7 @@ def settlement(settlement_apply, origin, seagrass_buff, timestep, status, lon, l
     if settlement_apply: # if this is false, then it will just join the blank dest_df to origin, and the get_destination_coords function will fill in the rest
         for i in range(1,len(timestep)):
 
-            output_str = "settlement time step " + str(i) + " of " + str(len(timestep))
+            output_str = "settlement time step " + str(i) + " of " + str(len(timestep)-1)
             logging.info(output_str)
             # get traj ids for particles that are active or where they were active on the previous step (just stranded)
             # NOTE: special case I may need to fix in the future: when running backwards I had a particle that was 1 on the very first time step. However, since it always seems to mask them after they are 1, I could just select where == 1 and not worry about if the previous step was 0.
@@ -623,8 +625,7 @@ for shp in shapefiles:
     shp = ogr.Open(shp)
     lyr = shp.GetLayer(0)
     for feature in lyr:
-        particles_per_release = feature.GetField('particles')
-        particles_per_release = int(feature.GetField('particles') / 200)
+        particles_per_release = int(feature.GetField('particles') / particle_factor)
         break
 
     dataset = nc.Dataset(nc_output, "r+")
