@@ -20,13 +20,13 @@ washington = r'C:\Users\jcristia\Documents\GIS\MSc_Projects\1Data_BASE\Seagrass\
 mpatt = r'C:\Users\jcristia\Documents\GIS\MSc_Projects\1Data_BASE\Seagrass\Seagrass_mpatt\mpatt_eco_plants_eelgrass_polygons_data.shp'
 
 # workspace
-sg_folder = r'C:\Users\jcristia\Documents\GIS\MSc_Projects\Hakai\spatial\seagrass\seagrass_all'
+sg_folder = r'C:\Users\jcristia\Documents\GIS\MSc_Projects\Hakai\scripts_runs\seagrass\seagrass\seagrass_20200112_SS\seagrass_prep'
 sg_gdb = 'seagrass.gdb'
 arcpy.env.workspace = os.path.join(sg_folder, sg_gdb)
 arcpy.env.outputCoordinateSystem = arcpy.SpatialReference("NAD 1983 BC Environment Albers")
 
 # remove meadows where the hydrodynamic model grid is not resolved
-remove = False
+remove = True
 grid = r'C:\Users\jcristia\Documents\GIS\MSc_Projects\Hakai\spatial\seagrass\seagrass_prep\seagrass_removeWhereNotResolved.gdb\grid_salishsea'
 grid_outline = r'C:\Users\jcristia\Documents\GIS\MSc_Projects\Hakai\spatial\seagrass\seagrass_prep\seagrass_removeWhereNotResolved.gdb\grid_salishsea_outline'
 
@@ -377,12 +377,11 @@ arcpy.DeleteField_management(os.path.join(out_folder, 'seagrass_buff_10FINAL.shp
 # Therefore, round: 7 parts, 2.8 million total per release, 16.8 million particles total.
 
 # area per release
-area_per_release = 73012827
+area_per_release = 74125024
 
-
-sg_all = r'C:\Users\jcristia\Documents\GIS\MSc_Projects\Hakai\spatial\seagrass\seagrass_all\seagrass.gdb\seagrass_all_19FINAL'
-sg_split_gdb = r'C:\Users\jcristia\Documents\GIS\MSc_Projects\Hakai\spatial\seagrass\seagrass_all\seagrass_all_split\sg_all_split.gdb'
-sg_split_folder = r'C:\Users\jcristia\Documents\GIS\MSc_Projects\Hakai\spatial\seagrass\seagrass_all\seagrass_all_split'
+sg_all = r'C:\Users\jcristia\Documents\GIS\MSc_Projects\Hakai\scripts_runs\seagrass\seagrass\seagrass_20200112_SS\seagrass_prep\seagrass.gdb\seagrass_all_19FINAL'
+sg_split_gdb = r'C:\Users\jcristia\Documents\GIS\MSc_Projects\Hakai\scripts_runs\seagrass\seagrass\seagrass_20200112_SS\seagrass_prep\seagrass_split\seagrass_split.gdb'
+sg_split_folder = r'C:\Users\jcristia\Documents\GIS\MSc_Projects\Hakai\scripts_runs\seagrass\seagrass\seagrass_20200112_SS\seagrass_prep\seagrass_split'
 # don't need to split buffered dataset since it is only used for settlement in the biology script
 
 import arcpy
@@ -400,7 +399,7 @@ arcpy.AddField_management(sg, 'split', 'TEXT')
 # code each split number starting from 1
 # maintain a running total of area
 # once I hit 73,012,827 (round up so that I don't have remainders at the end), add one to the split number and reset total area
-total_split = 13
+total_split = 7
 split = 1
 area_cumu = 0.0
 with arcpy.da.UpdateCursor(sg, ['area', 'split']) as cursor:
@@ -422,8 +421,8 @@ with arcpy.da.UpdateCursor(sg, ['area', 'split']) as cursor:
 arcpy.SplitByAttributes_analysis(sg, arcpy.env.workspace, ['split'])
 
 # calc how many particles to seed for each section
-total_area = 949166740.700846
-total_particles = 32000000
+total_area = 518875163.495861
+total_particles = 16800000
 num_of_releases = 6
 fcs = arcpy.ListFeatureClasses()
 fcs.remove('seagrass_all_split')

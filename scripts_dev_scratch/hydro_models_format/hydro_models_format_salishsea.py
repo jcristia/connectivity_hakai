@@ -10,7 +10,7 @@ from dateutil.parser import parse
 # Define paths, grid, and mask
 paths = {
     'erddap': 'https://salishsea.eos.ubc.ca/erddap/griddap',
-    'local': r'D:/Hakai/models/salishsea',
+    'local': r'D:\Hakai\models\salishsea',
 }
 grid = xr.open_dataset(os.path.join(paths['local'], 'ubcSSnBathymetryV17-02.nc'))
 mask = xr.open_dataset(os.path.join(paths['local'], 'ubcSSn3DMeshMaskV17-02.nc'))
@@ -38,7 +38,7 @@ def rotate(u, v):
 
 
 # Daterange for simulation
-daterange = [parse(d) for d in ['2016 Jul 09 00:30', '2016 Jul 29 00:30']]
+daterange = [parse(d) for d in ['2016 Aug 01 00:30', '2016 Oct 01 00:30']]
 
 # Forcing path
 fn = 'SalishSea_1h_' + '_'.join(d.strftime('%Y%m%d') for d in daterange) + '_opendrift.nc'

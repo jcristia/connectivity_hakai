@@ -4,26 +4,26 @@ import netCDF4 as nc
 import numpy as np
 import itertools
 
-filename = r'D:\Hakai\NEP36-N26_5d_20140524_20161228_grid_U_20160712-20160721.nc'
+filename = r'D:\Hakai\models\salishsea\salishseacast_20160101_20160301\forcing\SalishSea_1h_20160101_20160301_opendrift.nc'
 dataset = nc.Dataset(filename, "r+")
 
-#print dataset.data_model
-#variables = dataset.variables.keys()
-#for variable in variables:
-#    print variable
-#for dim in dataset.dimensions.values():
-#    print(dim)
-#for var in dataset.variables.values():
-#    print(var)
+print dataset.data_model
+variables = dataset.variables.keys()
+for variable in variables:
+    print variable
+for dim in dataset.dimensions.values():
+    print(dim)
+for var in dataset.variables.values():
+    print(var)
 
-lat = dataset.variables["nav_lat"][:]
-lon = dataset.variables["nav_lon"][:]
+lat = dataset.variables["latitude"][:]
+lon = dataset.variables["longitude"][:]
 
 lat = np.array(lat).flatten()
 lon = np.array(lon).flatten()
 
-headers = ['lon', 'lat']
-output = open(r'D:\Hakai\NEP_grid.csv', 'w')
+headers = ['X', 'Y']
+output = open(r'D:\Hakai\models\salishsea\salishseacast_20160101_20160301\forcing\grid_salishsea_JC.csv', 'w')
 for header in headers:
     output.write(header + ",")
 output.write("\n")

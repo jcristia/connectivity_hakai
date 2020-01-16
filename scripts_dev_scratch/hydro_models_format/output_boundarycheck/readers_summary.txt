@@ -1,0 +1,49 @@
+>>> print (reader_hakai)
+===========================
+Reader: D:\Hakai\models\fvcom_results\cal03brcl_21_0003_EDITED.nc
+Projection: 
+  +proj=latlong
+Coverage: [degrees]
+  xmin: -129.408279   xmax: -126.654747
+  ymin: 50.678719   ymax: 52.911083
+  Corners (lon, lat):
+    (-129.41,  52.91)  (-126.65,  52.91)
+    (-129.41,  50.68)  (-126.65,  50.68)
+Vertical levels [m]: 
+  Not specified
+Available time range:
+  start: 2016-07-09 12:00:00   end: 2016-07-29 12:00:00   step: 1:00:00
+    481 times (0 missing)
+Variables:
+  sea_floor_depth_below_geoid
+  dummyname3
+  dummyname4
+  ocean_sigma/general_coordinate
+  x_sea_water_velocity
+  y_sea_water_velocity
+  dummyname1
+  dummyname2
+  sea_surface_height_above_geoid
+===========================
+
+
+print(reader_nemo_pac)
+===========================
+Reader: nemo pacific jc custom
+Projection: 
+  None
+Coverage: [pixels]
+  xmin: 0.000000   xmax: 714.000000   step: 1   numx: 715
+  ymin: 0.000000   ymax: 1020.000000   step: 1   numy: 1021
+  Corners (lon, lat):
+    (  0.00,   0.00)  (  0.00,   0.00)
+    (-142.28,  45.06)  (  0.00,   0.00)
+Vertical levels [m]: 
+  Not specified
+Available time range:
+  start: 2016-07-14 12:00:00   end: 2016-07-19 12:00:00   step: 5 days, 0:00:00
+    2 times (0 missing)
+Variables:
+  x_sea_water_velocity
+  y_sea_water_velocity
+===========================

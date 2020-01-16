@@ -1,4 +1,4 @@
-filename = r'D:\Hakai\models\salishsea\forcing\SalishSea_1h_20160709_20160729_opendrift.nc'
+filename = r'D:\Hakai\models\salishsea\salishseacast_20160101_20160301\forcing\SalishSea_1h_20160101_20160301_opendrift.nc'
 
 from opendrift.models.oceandrift import OceanDrift
 o = OceanDrift(loglevel=0)
@@ -19,7 +19,7 @@ o.add_reader([reader_basemap, reader_salishsea])
 from datetime import datetime
 from datetime import timedelta
 
-o.seed_elements(lon=-123.27, lat=49.01, number=100, time=reader_salishsea.start_time+timedelta(days=19.5))
+o.seed_elements(lon=-123.27, lat=49.01, number=100, time=reader_salishsea.start_time+timedelta(days=50))
 
 #shp = r'C:\Users\jcristia\Documents\GIS\MSc_Projects\Hakai\scripts_dev_scratch\hydro_models_format\ss_sg_poly_TESTTEMP_ERASEx100.shp'
 #time_step = timedelta(hours=4)
@@ -27,7 +27,7 @@ o.seed_elements(lon=-123.27, lat=49.01, number=100, time=reader_salishsea.start_
 #for i in range(num_steps):
 #    o.seed_from_shapefile(shp, number=500, time=reader_salishsea.start_time + timedelta(days=19.75) + i*time_step)
 
-o.elements_scheduled
+#o.elements_scheduled
 
 o.set_config('drift:current_uncertainty_uniform', 1)
 o.set_config('general:coastline_action', 'stranding')
@@ -41,5 +41,7 @@ o.run(end_time=reader_salishsea.end_time, time_step=30, time_step_output=1800, o
 print(o)
 o.plot()
 o.animation()
+
+#o.io_import_file(r'C:\Users\jcristia\Documents\GIS\MSc_Projects\Hakai\scripts_dev_scratch\hydro_models_format\output_1.nc')
 
 #####################
