@@ -5,6 +5,8 @@
 # University of British Columbia
 # 2019-04-19
 
+# Environment
+# C:\Miniconda3\envs\biology_opendrift
 
 # note: you will get some pandas "settingwithcopywarning"s. These are ok.
 # warning: "A value is trying to be set on a copy of a slice from a DataFrame"
@@ -22,17 +24,21 @@ import fiona
 import pandas as pd
 import geopandas
 import math
-
+import ogr
+import logging
+logging.basicConfig(level=logging.INFO)
 
 ###################
 # variables to set on each run
+# if specific structure of input names change (seagrass_.nc vs seagrass_2019_.nc), then check additional variables at bottom
 ###################
 
-# output from Opendrift
-nc_output = r'D:\Hakai\script_runs\seagrass\output\seagrass_20190422_1.nc'
-
-seagrass = r'C:\Users\jcristia\Documents\GIS\MSc_Projects\Hakai\scripts_runs\seagrass\spatial\seagrass_merge_erase_clip_multisingle_rholes_less2000_hakai.shp'
-seagrass_buff = r'C:\Users\jcristia\Documents\GIS\MSc_Projects\Hakai\scripts_runs\seagrass\spatial\seagrass_merge_erase_clip_multisingle_rholes_less2000_hakai_buff20.shp' # buffered by 20m just for checking settlement. This is to account for seagrass polys that have slivers between coastline
+sg_path = r'C:\Users\jcristia\Documents\GIS\MSc_Projects\Hakai\scripts_dev_scratch\sensitivity_testing\particle_num\working_simulation\seagrass_split' # where input shapefiles are stored (for cluster runs, this will be the same folder as the script).
+# its assumed that every shapefile within this folder were used in the opendrift simulations. Other file types can be present here, but you can't have shapefiles that weren't used.
+input_folder = r'C:\Users\jcristia\Documents\GIS\MSc_Projects\Hakai\scripts_dev_scratch\sensitivity_testing\particle_num\working_simulation\outputs' # where nc and npy files are output
+output_folder = r'C:\Users\jcristia\Documents\GIS\MSc_Projects\Hakai\scripts_dev_scratch\sensitivity_testing\particle_num\working_simulation\outputs\shp'
+seagrass_og = r'C:\Users\jcristia\Documents\GIS\MSc_Projects\Hakai\scripts_dev_scratch\sensitivity_testing\particle_num\working_simulation\seagrass_og' # we still need the full original seagrass dataset for other checks even if we are using split up versions
+seagrass_buff = r'C:\Users\jcristia\Documents\GIS\MSc_Projects\Hakai\scripts_dev_scratch\sensitivity_testing\particle_num\working_simulation\seagrass_buff'  # buffered by 100m just for checking settlement. This is to account for seagrass polys that have slivers between coastline
 seagrass_crs = {'init' :'epsg:3005'}
 
 # if I am using 'stranding' in opendrift, then I likely need at least a small precompetency period because everything just ends up settling at home otherwise
@@ -42,9 +48,8 @@ precomp = 4
 
 # get these values from the simulation script
 time_step_output = 0.5 # in hours. It will be in seconds in the opendrift script
-particles_per_release = 200000
-interval_of_release = 0.5 # in hours (interval can't be less than time step output) (if no delayed release then just put same value as time_step_output)
-num_of_releases = 1 # if no delayed release then just put 1
+interval_of_release = 4 # in hours (interval can't be less than time step output) (if no delayed release then just put same value as time_step_output)
+num_of_releases = 84 # if no delayed release then just put 1
 
 # allow particles to settle?
 settlement_apply = True
@@ -53,9 +58,18 @@ settlement_apply = True
 mortality_rate = 0.15 # instantaneous daily rate
 mort_period = 8 # after how many time_step_outputs to apply mortality rate (MAKE THIS A FACTOR OF 24). The mortality rate will be scaled appropriately so that still matches the daily rate. This option is given because it seems uncessary to apply it at every time step, but for some species with short PLDs, it will make sense to apply it more often than once per day. If mortality rate is 0, the also set this to 0.
 
-# output shapefile location
-shp_out = r'C:\Users\jcristia\Documents\GIS\MSc_Projects\Hakai\scripts_runs\seagrass\output\seagrass_20190422\dest_biology_pts_20190422.shp'
-conn_lines_out = r'C:\Users\jcristia\Documents\GIS\MSc_Projects\Hakai\scripts_runs\seagrass\output\seagrass_20190422\connectivity_20190422.shp'
+# is this a backwards run?
+backwards_run = False
+
+# PLD limit
+# I run opendrift simulations for what I expect the max PLD to be that I am considering. Then in this script I can set a smaller PLD and see which connections are made if I had only run the simulation up to a certain timestep.
+# I need to do PLDs all at once on each run of this script because mortality is random and I want all PLDs done on one random selection of particles instead of on different selections.
+# Provide PLDs in a list in units of days
+plds = [45]
+
+# Particle factor
+# for testing purposes only, otherwise keep set to 1
+particle_factor = 1
 
 
 
@@ -67,20 +81,17 @@ conn_lines_out = r'C:\Users\jcristia\Documents\GIS\MSc_Projects\Hakai\scripts_ru
 # assign a polygon unique ID to each particle based on which polygon it starts in
 ###################
 
-def get_particle_originPoly(seagrass, lon, lat, traj, seagrass_crs):
+def get_particle_originPoly(seagrass, lon, lat, traj, seagrass_crs, lat_np, lon_np, backwards_run):
+
+    logging.info("Getting origin coordinates of each particle")
 
     # get starting lat/lon for each particle
-    # particles start at different times, so check if it is masked, stop once we find our first value
-    lons = []
-    lats = []
-    for i in range(len(traj)):
-        # get lon/lat values where not masked, then get the first value
-        if np.ma.is_masked(lon[i][-1]): # some trajs will not be masked at all, need to check for this (this would be if they are released on the first time step and never settle)
-            lons.append(lon[i][lon[i].mask==False][0])
-            lats.append(lat[i][lat[i].mask==False][0])
-        else: # if it is not masked at any point, then it must be the first value
-            lons.append(lon[i][0])
-            lats.append(lat[i][0])
+    lons = np.load(lon_np)
+    lats = np.load(lat_np)
+    # reverse order for backwards runs (opendrift for some reason records them in reverse in the netcdf file)
+    if backwards_run:
+        lons = lons[::-1]
+        lats = lats[::-1]
     
     # check which polygon it seeds in
     poly  = geopandas.GeoDataFrame.from_file(seagrass)
@@ -101,10 +112,16 @@ def get_particle_originPoly(seagrass, lon, lat, traj, seagrass_crs):
     shp = fiona.open(seagrass)
     # select ones that are NaN
     origin_temp = origin[origin.uID.isnull()]
+
+    logging.info("Getting origin coordinates for points that didn't fall within a polygon. The following particles...")
+    print(origin_temp)
+
     for row in origin_temp.itertuples(index=True):
         index = row[0]
+        # 20190502 In the future may also need to consider if it is the very first or last point in the entire series that is NaN, in which case I will get an error.
         before = origin["uID"][index-1]
         after = origin["uID"][index+1]
+
         # most points should fall into the first if statement (if the before and after uIDs are the same)
         # the remaining statements are to catch when there are multiple nan values in a row
         # or if the nan value is the first or last point in that polygon
@@ -117,7 +134,7 @@ def get_particle_originPoly(seagrass, lon, lat, traj, seagrass_crs):
         elif math.isnan(before) or math.isnan(after): # the uID before or after is also nan
             i = 1
             eureka = True
-            while eureka:
+            while eureka: # check going backwards
                 if not math.isnan(origin["uID"][index-i]):
                     before = origin["uID"][index-i]
                     eureka = False
@@ -213,7 +230,11 @@ def settlement(settlement_apply, origin, seagrass_buff, timestep, status, lon, l
 
     if settlement_apply: # if this is false, then it will just join the blank dest_df to origin, and the get_destination_coords function will fill in the rest
         for i in range(1,len(timestep)):
+
+            output_str = "settlement time step " + str(i) + " of " + str(len(timestep)-1)
+            logging.info(output_str)
             # get traj ids for particles that are active or where they were active on the previous step (just stranded)
+            # NOTE: special case I may need to fix in the future: when running backwards I had a particle that was 1 on the very first time step. However, since it always seems to mask them after they are 1, I could just select where == 1 and not worry about if the previous step was 0.
             t_strand = traj[np.where((status[:,[i]] == 1) & (status[:,[i-1]] == 0))[0]]
             t_active = traj[np.where(status[:,[i]] == 0)[0]]
         
@@ -272,6 +293,13 @@ def settlement(settlement_apply, origin, seagrass_buff, timestep, status, lon, l
     # join the two tables
     # The resulting data frame is the particles that settled in another patch
     # to get all particles including the ones that did not settle change to:  how='outer'
+    logging.info("merging destination and origin dataframes")
+    # need to coerce merge. traj_id must be numeric. The dest_df data types were all "object"
+    # this was not a problem on windows, but when running on the cluster it woud give an error
+    dest_df = dest_df.infer_objects()
+    origin = origin.infer_objects()
+    dest_df.traj_id = dest_df.traj_id.astype('float')
+    origin.traj_id = origin.traj_id.astype('float')
     origin_dest = dest_df.merge(origin, on='traj_id', how='outer')
 
     return origin_dest
@@ -280,20 +308,34 @@ def settlement(settlement_apply, origin, seagrass_buff, timestep, status, lon, l
 # add the final destination coordinates to particles that did not settle on a patch
 ###################
 
-def get_destination_coords(origin_dest, traj, lon, lat, timestep, seagrass_crs):
+def get_destination_coords(origin_dest, traj, lon, lat, timestep, seagrass_crs, status):
 
+    logging.info("getting destination coordinates")
     lons_dest = []
     lats_dest = []
     time_steps = []
     for i in range(len(traj)):
-        if np.ma.is_masked(lon[i][-1]): # if the last value is masked (but really just to check if any values are masked, similar to getParticleOriginPoly)
-            lons_dest.append(lon[i][lon[i].mask==False][-1]) # get the last coordinate where it is not masked
-            lats_dest.append(lat[i][lat[i].mask==False][-1])
+        if np.ma.is_masked(lon[i][-1]): # if the last value is masked (but really just to check if any values are masked, similar to getParticleOriginPoly). If it is masked then it must have stranded, and therefore we can search by where it is 1.
+            # changed this statement from '== 1' to '> 0'. I found that if a particle goes outside of the grid it gets coded as '2 - missing data'. Opendrift says that anything above 0 is considered deactivated, so the actual number doesn't matter (at least for my purposes, just that it is bigger than 0.
+            j = np.where(status[i] > 0)[0][0]
+            lo = lon[i][j]
+            lons_dest.append(lo)
+            la = lat[i][j]
+            lats_dest.append(la)
+
+            # old way
+            #lons_dest.append(lon[i][lon[i].mask==False][-1]) # get the last coordinate where it is not masked
+            #lats_dest.append(lat[i][lat[i].mask==False][-1])
+
+            # timestep
+            index = j
+            time_steps.append(index)
+            # old way
             # this is an optimized way to get the last time step
             # it flips the masking, then gets locations where masking is True, then I just take the last one
-            d = status[i].mask == False
-            index = np.where(d)
-            time_steps.append(index[0][-1])
+            #d = status[i].mask == False
+            #index = np.where(d)
+            #time_steps.append(index[0][-1])
         else: # otherwise just get the last coordinate
             lons_dest.append(lon[i][-1])
             lats_dest.append(lat[i][-1])
@@ -320,6 +362,9 @@ def get_destination_coords(origin_dest, traj, lon, lat, timestep, seagrass_crs):
     # I was originally doing itertuples, which I found out is extremely slow and a big no-no.
     # stick with vectorization when possible
     # join, fill in values where null, remove columns
+    logging.info("joining destination coordinates to dataframe")
+    points_dest = points_dest.infer_objects()
+    points_dest.traj_id = points_dest.traj_id.astype('float')
     origin_dest = origin_dest.merge(points_dest, on='traj_id')
     origin_dest['time_int'].loc[origin_dest['time_int'].isnull()] = origin_dest['time_step']
     origin_dest['d_coords'].loc[origin_dest['d_coords'].isnull()] = origin_dest['Coordinates']
@@ -336,6 +381,8 @@ def get_destination_coords(origin_dest, traj, lon, lat, timestep, seagrass_crs):
 ###################
 
 def calc_mortality(mortality_rate, traj, timestep, origin_dest, time_step_output, mort_period, interval_of_release, num_of_releases):
+
+    logging.info("calculating mortality")
 
     mortality_p = pd.DataFrame(columns=['traj_id','mortstep'])
 
@@ -402,57 +449,73 @@ def calc_mortality(mortality_rate, traj, timestep, origin_dest, time_step_output
 
     return origin_dest_mort, mortality_p
 
-
 ###################
-# RUN biology
-# run all functions, even if you aren't applying settlement and/or mortality
+# add in starting time interval
+# added 2020-01-13 so that we know the full time period of particles that may not have been released at the first time step
+# This allows us calculate different connections for different PLDs
 ###################
 
-dataset = nc.Dataset(nc_output, "r+")
-lon = dataset.variables["lon"]
-lat = dataset.variables["lat"]
-traj = dataset.variables["trajectory"]
-status = dataset.variables["status"]
-timestep = dataset.variables["time"]
+def start_time_int(origin_dest_mort, timesteps_with_release, particle_range, traj):
+    
+    logging.info("adding in particle start time")
 
-origin = get_particle_originPoly(seagrass, lon, lat, traj, seagrass_crs)
+    df = pd.DataFrame()
+    df['traj_id'] = list(traj)
 
-if precomp == 0:
-    timesteps_with_release = None
-    precomp_end_timestep = None
-    precomp_range = None
-    particle_range = None
-else:
-    timesteps_with_release, precomp_end_timestep, precomp_range, particle_range = calc_precomp(precomp, time_step_output, particles_per_release, interval_of_release, num_of_releases, traj)
+    # starting time step of each particle
+    # this could probably be optimized
+    time_int_start = []
+    for t in range(len(timesteps_with_release)):
+        for particle in range(particle_range[t][0],particle_range[t][1]):
+            time_int_start.append(timesteps_with_release[t])
+    
+    df['time_int_s'] = time_int_start # name shortened for shapefile
 
-origin_dest = settlement(settlement_apply, origin, seagrass_buff, timestep, status, lon, lat, traj, seagrass_crs, precomp, precomp_range, particle_range, mortality_rate)
+    # need to coerce merge. traj_id must be numeric. The dest_df data types were all "object"
+    # this was not a problem on windows, but when running on the cluster it woud give an error
+    df = df.infer_objects()
+    origin_dest_mort = origin_dest_mort.infer_objects()
+    df.traj_id = df.traj_id.astype('float')
+    origin_dest_mort.traj_id = origin_dest_mort.traj_id.astype('float')   
+    origin_dest_mort = origin_dest_mort.merge(df, on='traj_id')
 
-origin_dest = get_destination_coords(origin_dest, traj, lon, lat, timestep, seagrass_crs)
+    return origin_dest_mort
 
-origin_dest_mort, mortality_p = calc_mortality(mortality_rate, traj, timestep, origin_dest, time_step_output, mort_period, interval_of_release, num_of_releases)
+
+
+
+
+
 
 
 ###################
 # OUTPUTS
 ###################
 
-#### output to shapefile ####
-def out_shp_dest_points(origin_dest_mort, seagrass_crs, shp_out):
+#### output destinaiton points to shapefile ####
+def out_shp_dest_points(origin_dest_mort, seagrass_crs, shp_out, date_start):
+    logging.info("writing points to shapefile")
     # can only have one geometry column
     # remove origin spatial column since for origin I am just concernced about origin poly ID
     od = origin_dest_mort.drop(['o_coords'], axis=1)
     od = geopandas.GeoDataFrame(od, geometry='d_coords')
     od.crs = seagrass_crs
     od = od.fillna(-1) # fill NaN with -1, otherwise NaN gets turned to 0 on export. This could be confusing when analyzing the data
+    od['date_start'] = date_start
     od.to_file(filename=shp_out, driver='ESRI Shapefile')
 
 #### create connection lines ####
-def connection_lines(shp_out, seagrass, seagrass_crs, conn_lines_out):
+def connection_lines(shp_out, seagrass_og, seagrass_crs, conn_lines_out, date_start, pld_int, pld):
+
+    logging.info("writing connection lines to shapefile")
     od = geopandas.read_file(shp_out)
-    sg = geopandas.read_file(seagrass)
-    
+    sg = geopandas.read_file(seagrass_og)
+
+    ### on od, select particles where time_int_s minus time_int is less than or equal to PLD
+    od_pld = od[(od.time_int - od.time_int_s <= pld_int)]
+
     # get each unique combination of originID and destID and get count of particles that survived
-    od_unique = od[(od.dest_id != -1) & (od.mortstep == -1)].groupby(['uID','dest_id']).size().reset_index(name='Freq')
+    od_unique = od_pld[(od_pld.dest_id != -1) & (od_pld.mortstep == -1)].groupby(['uID','dest_id']).size().reset_index(name='Freq')
     # how to read this:
     # first we select from od the ones that settled and survived
     # then we groupby unique combinations of uID and dest_id
@@ -460,7 +523,7 @@ def connection_lines(shp_out, seagrass, seagrass_crs, conn_lines_out):
     # this normally makes uID the index and doesn't have a column name for count (the series we created), so we reset index and give the count a column name
 
     # df of time interval where first settlement occurred
-    df_time_int = od[(od.dest_id != -1) & (od.mortstep == -1)].groupby(['uID','dest_id'])['time_int'].min().reset_index(name='time_int')
+    df_time_int = od_pld[(od_pld.dest_id != -1) & (od_pld.mortstep == -1)].groupby(['uID','dest_id'])['time_int'].min().reset_index(name='time_int')
     
     # set up for creating self connection lines. Size of circle lines based on amount settled and average area of all patches.
     def CircleCoords(xLeft, yCenter, r, n): # credit: MGET. Also, see circle_coords.xlsx for explanation of equation.
@@ -474,7 +537,7 @@ def connection_lines(shp_out, seagrass, seagrass_crs, conn_lines_out):
     radius = math.sqrt(area_mean/math.pi)
     
     # for each unique combinaton create line from centroids
-    connection_lines = pd.DataFrame(columns=['from_id','to_id','quantity','totalori','prob','time_int', 'line'])
+    connection_lines = pd.DataFrame(columns=['from_id','to_id','quantity','totalori','prob','time_int', 'line', 'pld'])
     conn_i = 0
     for row in od_unique.itertuples(index=False):
         # get total amount of particles released from patch
@@ -486,7 +549,7 @@ def connection_lines(shp_out, seagrass, seagrass_crs, conn_lines_out):
         # get centroid of from and to patches
         centroid_origin = sg[sg.uID == row[0]].centroid
         centroid_dest = sg[sg.uID == row[1]].centroid
-    
+
         if row[0] != row[1]:
             geom_line = LineString([centroid_origin.tolist()[0], centroid_dest.tolist()[0]])
         else:
@@ -496,14 +559,106 @@ def connection_lines(shp_out, seagrass, seagrass_crs, conn_lines_out):
             radius_adj = radius * quantity_norm
             geom_line = LineString(CircleCoords(centroid_origin.x.tolist()[0], centroid_origin.y.tolist()[0], radius_adj, 90))
     
-        connection_lines.loc[conn_i] = [row[0],row[1],row[2],total,row[2]/float(total), time_int,geom_line]
+        connection_lines.loc[conn_i] = [row[0],row[1],float(row[2]),float(total),row[2]/float(total), time_int,geom_line, pld]
         conn_i += 1
     
+    connection_lines['date_start'] = date_start   
     connection_lines = geopandas.GeoDataFrame(connection_lines, geometry='line')
     connection_lines.crs = seagrass_crs
     connection_lines.to_file(filename=conn_lines_out, driver='ESRI Shapefile')
 
+#### output patch centroids to shapefile (for use in network analysis) ####
+def out_shp_patch_centroids(seagrass_og, patch_centroids_out, seagrass_crs, date_start):
+    sg = geopandas.read_file(seagrass_og)
+    # copy poly to new GeoDataFrame
+    points = sg.copy()
+    # change the geometry
+    points.geometry = points['geometry'].centroid
+    # same crs
+    points.crs = seagrass_crs
+    points['date_start'] = date_start
+    points.to_file(filename=patch_centroids_out, driver='ESRI Shapefile')
 
-out_shp_dest_points(origin_dest_mort, seagrass_crs, shp_out)
-if settlement_apply:
-    connection_lines(shp_out, seagrass, seagrass_crs, conn_lines_out)
+
+
+
+
+###################
+# RUN biology
+# run all functions, even if you aren't applying settlement and/or mortality
+###################
+
+# cycle through number of shapefiles
+import os
+sg_files = os.listdir(sg_path)
+shapefiles = []
+for file in sg_files:
+    if file.endswith('.shp'):
+        shapefiles.append(os.path.join(sg_path, file))
+
+patch_centroids_out = os.path.join(output_folder, 'patch_centroids.shp')
+
+for shp in shapefiles:
+
+    # get base name
+    base = os.path.splitext(os.path.basename(shp))[0]
+
+    # output from Opendrift
+    nc_output = os.path.join(input_folder, 'seagrass_' + base + '_' + str(particle_factor) + '.nc')
+
+    # the lat and lon numpy files of starting coordinates saved from the opendrift run
+    lat_np = os.path.join(input_folder, 'lat_' + base + '.npy')
+    lon_np = os.path.join(input_folder, 'lon_' + base + '.npy')
+
+    seagrass = shp
+
+    # get number of particles per release
+    shp = ogr.Open(shp)
+    lyr = shp.GetLayer(0)
+    for feature in lyr:
+        particles_per_release = int(feature.GetField('particles') * particle_factor)
+        break
+
+    dataset = nc.Dataset(nc_output, "r+")
+    lon = dataset.variables["lon"]
+    lat = dataset.variables["lat"]
+    traj = dataset.variables["trajectory"]
+    status = dataset.variables["status"]
+    timestep = dataset.variables["time"]
+    date_start = dataset.time_coverage_start
+
+    origin = get_particle_originPoly(seagrass, lon, lat, traj, seagrass_crs, lat_np, lon_np, backwards_run)
+
+    if precomp == 0:
+        timesteps_with_release = None
+        precomp_end_timestep = None
+        precomp_range = None
+        particle_range = None
+    else:
+        timesteps_with_release, precomp_end_timestep, precomp_range, particle_range = calc_precomp(precomp, time_step_output, particles_per_release, interval_of_release, num_of_releases, traj)
+
+    origin_dest = settlement(settlement_apply, origin, seagrass_buff, timestep, status, lon, lat, traj, seagrass_crs, precomp, precomp_range, particle_range, mortality_rate)
+
+    origin_dest = get_destination_coords(origin_dest, traj, lon, lat, timestep, seagrass_crs, status)
+
+    origin_dest_mort, mortality_p = calc_mortality(mortality_rate, traj, timestep, origin_dest, time_step_output, mort_period, interval_of_release, num_of_releases)
+
+    origin_dest_mort = start_time_int(origin_dest_mort, timesteps_with_release, particle_range, traj)
+
+    ### outputs
+
+    shp_out = os.path.join(output_folder, 'dest_biology_pts_' + base + '.shp')
+    out_shp_dest_points(origin_dest_mort, seagrass_crs, shp_out, date_start)
+
+    if settlement_apply:
+        for pld in plds:
+            # check that pld is not longer than length of timestep
+            pld_int = (pld * 24) / time_step_output
+            if pld_int > len(timestep):
+                logging.error("PLD provided is greater than length of timestep")
+                break
+            conn_lines_out = os.path.join(output_folder, 'connectivity_' + base + '_pld' + str(pld) + '.shp')
+            connection_lines(shp_out, seagrass_og, seagrass_crs, conn_lines_out, date_start, pld_int, pld)
+
+
+out_shp_patch_centroids(seagrass_og, patch_centroids_out, seagrass_crs, date_start)

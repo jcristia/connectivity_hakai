@@ -79,7 +79,7 @@ for shp in shapefiles:
 
     #o.io_import_file(r'C:\Users\jcristia\Documents\GIS\MSc_Projects\Hakai\scripts_dev_scratch\biology_working\biology_working\working_simulation\outputs\seagrass_sg1.nc')
 
-    o.plot(filename=r'C:\Users\jcristia\Documents\GIS\MSc_Projects\Hakai\scripts_dev_scratch\biology_working\biology_working\working_simulation\outputs\runX_' + base + '.png')
+    o.plot(filename=r'C:\Users\jcristia\Documents\GIS\MSc_Projects\Hakai\scripts_dev_scratch\biology_working\biology_working\working_simulation\outputs\runX_' + "test" + '.png')
 
     #o.plot(filename=r'C:\Users\jcristia\Documents\GIS\MSc_Projects\Hakai\scripts_dev_scratch\biology_working\biology_working\working_simulation\outputs\runX.png')
 

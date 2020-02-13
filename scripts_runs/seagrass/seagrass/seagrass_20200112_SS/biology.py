@@ -1,12 +1,3 @@
-# currently working on running biology script for different lengths of time
-# e.g. netcdf file is for 60 days, but I want to run it for 30, 10, 3, 1 days
-# also with 1 day, not all particles can be treated the same since they are released throughout the day,
-# so I need to figure out how to stagger short runs
-
-
-
-
-
 # Script to add bio part of a biophysical model
 # This script takes the output netcdf file from an Opendrift simulation and modifies particle end trajectories by consdering precompetency period, settlement, and mortality.
 

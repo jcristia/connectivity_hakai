@@ -1,12 +1,3 @@
-# currently working on running biology script for different lengths of time
-# e.g. netcdf file is for 60 days, but I want to run it for 30, 10, 3, 1 days
-# also with 1 day, not all particles can be treated the same since they are released throughout the day,
-# so I need to figure out how to stagger short runs
-
-
-
-
-
 # Script to add bio part of a biophysical model
 # This script takes the output netcdf file from an Opendrift simulation and modifies particle end trajectories by consdering precompetency period, settlement, and mortality.
 
@@ -451,6 +442,13 @@ def calc_mortality(mortality_rate, traj, timestep, origin_dest, time_step_output
             df = pd.DataFrame({'traj_id':mortality_selection, 'mortstep':i})
             mortality_p = mortality_p.append(df, ignore_index=True)
 
+
+    # need to coerce merge. traj_id must be numeric. The dest_df data types were all "object"
+    # this was not a problem on windows, but when running on the cluster it woud give an error
+    mortality_p = mortality_p.infer_objects()
+    origin_dest = origin_dest.infer_objects()
+    mortality_p.traj_id = mortality_p.traj_id.astype('float')
+    origin_dest.traj_id = origin_dest.traj_id.astype('float')
     # join to origin_dest
     origin_dest_mort = origin_dest.merge(mortality_p, on='traj_id', how='outer')
     # we still want the join to happen even if mortality_p is empty. It will just make the column NaN which we later turn to -1.
@@ -625,7 +623,7 @@ for shp in shapefiles:
     shp = ogr.Open(shp)
     lyr = shp.GetLayer(0)
     for feature in lyr:
-        particles_per_release = int(feature.GetField('particles') / particle_factor)
+        particles_per_release = int(feature.GetField('particles') * particle_factor)
         break
 
     dataset = nc.Dataset(nc_output, "r+")
