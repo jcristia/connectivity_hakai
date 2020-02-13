@@ -48,8 +48,8 @@ precomp = 4
 
 # get these values from the simulation script
 time_step_output = 0.5 # in hours. It will be in seconds in the opendrift script
-interval_of_release = 4 # in hours (interval can't be less than time step output) (if no delayed release then just put same value as time_step_output)
-num_of_releases = 6 # if no delayed release then just put 1
+interval_of_release = 1 # in hours (interval can't be less than time step output) (if no delayed release then just put same value as time_step_output)
+num_of_releases = 84 # if no delayed release then just put 1
 
 # allow particles to settle?
 settlement_apply = True
@@ -66,10 +66,6 @@ backwards_run = False
 # I need to do PLDs all at once on each run of this script because mortality is random and I want all PLDs done on one random selection of particles instead of on different selections.
 # Provide PLDs in a list in units of days
 plds = [1, 5, 10, 15]
-
-# Particle factor
-# for testing purposes only, otherwise keep set to 1
-particle_factor = 1
 
 
 
@@ -619,13 +615,6 @@ for shp in shapefiles:
 
     seagrass = shp
 
-    # get number of particles per release
-    shp = ogr.Open(shp)
-    lyr = shp.GetLayer(0)
-    for feature in lyr:
-        particles_per_release = int(feature.GetField('particles') * particle_factor)
-        break
-
     dataset = nc.Dataset(nc_output, "r+")
     lon = dataset.variables["lon"]
     lat = dataset.variables["lat"]
@@ -633,6 +622,8 @@ for shp in shapefiles:
     status = dataset.variables["status"]
     timestep = dataset.variables["time"]
     date_start = dataset.time_coverage_start
+
+    particles_per_release = int(len(traj) / num_of_releases)
 
     origin = get_particle_originPoly(seagrass, lon, lat, traj, seagrass_crs, lat_np, lon_np, backwards_run)
 
