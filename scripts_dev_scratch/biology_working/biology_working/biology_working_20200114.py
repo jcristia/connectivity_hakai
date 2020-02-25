@@ -436,7 +436,7 @@ def calc_mortality(mortality_rate, traj, timestep, origin_dest, time_step_output
 
             # append this selection to mortality_p with the timestep that they were killed
             df = pd.DataFrame({'traj_id':mortality_selection, 'mortstep':i})
-            mortality_p = mortality_p.append(df, ignore_index=True)
+            mortality_p = mortality_p.append(df, ignore_index=True, sort=True)
 
 
     # need to coerce merge. traj_id must be numeric. The dest_df data types were all "object"
