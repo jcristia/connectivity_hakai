@@ -1,10 +1,10 @@
-filename = r'D:\Hakai\models\salishsea\salishseacast_20160101_20160301\forcing\SalishSea_1h_20160101_20160301_opendrift.nc'
+filename = r'D:\Hakai\models\salishsea\salishseacast_20170101_20170316\forcing\SalishSea_1h_20170101_20170105_opendrift.nc'
 
 from opendrift.models.oceandrift import OceanDrift
 o = OceanDrift(loglevel=0)
 
-from opendrift.readers import reader_netCDF_CF_unstructured
-reader_salishsea = reader_netCDF_CF_unstructured.Reader(filename)
+from opendrift.readers import reader_netCDF_CF_unstructured_Salish005
+reader_salishsea = reader_netCDF_CF_unstructured_Salish005.Reader(filename)
 print (reader_salishsea)
 
 from opendrift.readers import reader_basemap_landmask
@@ -19,7 +19,7 @@ o.add_reader([reader_basemap, reader_salishsea])
 from datetime import datetime
 from datetime import timedelta
 
-o.seed_elements(lon=-123.27, lat=49.01, number=100, time=reader_salishsea.start_time+timedelta(days=50))
+o.seed_elements(lon=-123.27, lat=49.01, number=100, time=reader_salishsea.start_time+timedelta(days=2))
 
 #shp = r'C:\Users\jcristia\Documents\GIS\MSc_Projects\Hakai\scripts_dev_scratch\hydro_models_format\ss_sg_poly_TESTTEMP_ERASEx100.shp'
 #time_step = timedelta(hours=4)
@@ -36,7 +36,7 @@ o.set_config('drift:scheme', 'euler')
 #o.list_configspec()
 
 
-o.run(end_time=reader_salishsea.end_time, time_step=30, time_step_output=1800, outfile=r'C:\Users\jcristia\Documents\GIS\MSc_Projects\Hakai\scripts_dev_scratch\hydro_models_format\output_1.nc', export_variables=["age_seconds", "land_binary_mask"])
+o.run(end_time=reader_salishsea.end_time, time_step=60, time_step_output=1800, outfile=r'C:\Users\jcristia\Documents\GIS\MSc_Projects\Hakai\scripts_dev_scratch\hydro_models_format\output_1.nc', export_variables=["age_seconds", "land_binary_mask"])
 
 print(o)
 o.plot()

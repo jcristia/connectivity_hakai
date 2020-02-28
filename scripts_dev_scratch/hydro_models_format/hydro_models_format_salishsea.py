@@ -11,10 +11,10 @@ from dateutil.parser import parse
 paths = {
     'erddap': 'https://salishsea.eos.ubc.ca/erddap/griddap',
     'local': r'D:\Hakai\models\salishsea',
+    'local_add': r'salishseacast_20170101_20170316'
 }
 grid = xr.open_dataset(os.path.join(paths['local'], 'ubcSSnBathymetryV17-02.nc'))
 mask = xr.open_dataset(os.path.join(paths['local'], 'ubcSSn3DMeshMaskV17-02.nc'))
-
 
 
 def unstagger(u, v):
@@ -38,17 +38,17 @@ def rotate(u, v):
 
 
 # Daterange for simulation
-daterange = [parse(d) for d in ['2016 Aug 01 00:30', '2016 Oct 01 00:30']]
+daterange = [parse(d) for d in ['2017 Jan 01 00:30', '2017 Jan 05 23:30']]
 
 # Forcing path
 fn = 'SalishSea_1h_' + '_'.join(d.strftime('%Y%m%d') for d in daterange) + '_opendrift.nc'
-forcing_NEMO = os.path.join(paths['local'], 'forcing', fn)
+forcing_NEMO = os.path.join(paths['local'], paths['local_add'], 'forcing', fn)
 
 
 # Load forcing data from ERDDAP
 raw = []
 for vel in ['u', 'v']:
-    with xr.open_dataset(os.path.join(paths['local'], f'ubcSSg3D{vel}GridFields1hV18-12.nc')) as data:
+    with xr.open_dataset(os.path.join(paths['local'], paths['local_add'], f'ubcSS_V19-05_{vel}.nc')) as data:
         time = data.time.sel(time=slice(*daterange))
         raw.append(data[f'{vel}Velocity'][:, 0, ...].values)
 
