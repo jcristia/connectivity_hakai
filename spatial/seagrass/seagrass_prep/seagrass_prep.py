@@ -21,7 +21,7 @@ mpatt = r'C:\Users\jcristia\Documents\GIS\MSc_Projects\1Data_BASE\Seagrass\Seagr
 
 # workspace
 sg_folder = r'C:\Users\jcristia\Documents\GIS\MSc_Projects\Hakai\spatial\seagrass\seagrass_all'
-sg_gdb = 'seagrass.gdb'
+sg_gdb = 'seagrass.gdb'  # this must exist
 arcpy.env.workspace = os.path.join(sg_folder, sg_gdb)
 arcpy.env.outputCoordinateSystem = arcpy.SpatialReference("NAD 1983 BC Environment Albers")
 
@@ -352,108 +352,3 @@ arcpy.DeleteField_management(os.path.join(out_folder, 'seagrass_buff_10FINAL.shp
 
 
 #################################################
-
-
-# split seagrass dataset into multiple parts based on area
-# based on intial testing... with the number of particles I will need to seed, it will take way too long to run
-# therefore, I will break the patches up and run separate simulations and merge the output shapefiles at the end.
-# the area per split is based on the area of the patches and particles released in my initial testing with just the hakai model.
-
-# Numbers from Hakai model simulations:
-# 400,000 particles released from 1,365 patches in 6 releases
-# Total of 2.4 million particles
-# Total area of those patches: 71,401,432 m2
-
-# Coastwide simulations:
-# Total area of all patches: 949,166,741 m2 (949,166,740.700846)
-# Scaled up from Hakai runs, total particles to release: 31,904,125.
-# 5,317,354 particles per release. Round this down to 5,200,000 so that it is divisible by 13.
-# Therefore, to maintain 400,000 particles per release, I need the seagrass dataset split into 13 parts.
-
-# Salish Sea simulations:
-# Total area of all patches: 518,875,163.495861 m2
-# Scaled up from Hakai runs, total particles to release: 17,440,832
-# 2,906,805 particles per release. If I want 400,000 particles per release, then I need 7.26 parts.
-# Therefore, round: 7 parts, 2.8 million total per release, 16.8 million particles total.
-
-# area per release
-area_per_release = 73012827
-
-
-sg_all = r'C:\Users\jcristia\Documents\GIS\MSc_Projects\Hakai\spatial\seagrass\seagrass_all\seagrass.gdb\seagrass_all_19FINAL'
-sg_split_gdb = r'C:\Users\jcristia\Documents\GIS\MSc_Projects\Hakai\spatial\seagrass\seagrass_all\seagrass_all_split\sg_all_split.gdb'
-sg_split_folder = r'C:\Users\jcristia\Documents\GIS\MSc_Projects\Hakai\spatial\seagrass\seagrass_all\seagrass_all_split'
-# don't need to split buffered dataset since it is only used for settlement in the biology script
-
-import arcpy
-import os
-arcpy.env.workspace = sg_split_gdb
-arcpy.env.overwriteOutput = True
-
-# copy to main dataset to split folder
-sg = arcpy.FeatureClassToFeatureClass_conversion(sg_all, sg_split_gdb, 'seagrass_all_split')
-
-# add attribute for split number
-arcpy.AddField_management(sg, 'split', 'TEXT')
-
-# with an Update Cursor...
-# code each split number starting from 1
-# maintain a running total of area
-# once I hit 73,012,827 (round up so that I don't have remainders at the end), add one to the split number and reset total area
-total_split = 13
-split = 1
-area_cumu = 0.0
-with arcpy.da.UpdateCursor(sg, ['area', 'split']) as cursor:
-    for row in cursor:
-        area_cumu += row[0]
-        if area_cumu < area_per_release:
-            row[1] = 'sg' + str(split)
-            cursor.updateRow(row)
-        elif split < total_split:
-            split += 1
-            row[1] = 'sg' + str(split)
-            area_cumu = row[0]
-            cursor.updateRow(row)
-        else:
-            row[1] = 'sg' + str(total_split)
-            cursor.updateRow(row)
-
-# split based on split number
-arcpy.SplitByAttributes_analysis(sg, arcpy.env.workspace, ['split'])
-
-# calc how many particles to seed for each section
-total_area = 949166740.700846
-total_particles = 32000000
-num_of_releases = 6
-fcs = arcpy.ListFeatureClasses()
-fcs.remove('seagrass_all_split')
-for fc in fcs:
-    arcpy.AddField_management(fc, 'particles', 'LONG')
-    tot_area_section = 0.0
-    with arcpy.da.SearchCursor(fc, 'area') as cursor:
-        for row in cursor:
-            tot_area_section += row[0]
-    particle = int(((tot_area_section * total_particles) / total_area) / num_of_releases)
-    arcpy.CalculateField_management(fc, 'particles', particle)
-
-# check total
-# it won't be exactly 32 mil because of the int rounding, but it should be close
-fcs = arcpy.ListFeatureClasses()
-fcs.remove('seagrass_all_split')
-particle_check = 0
-for fc in fcs:
-    with arcpy.da.SearchCursor(fc, 'particles') as cursor:
-        for row in cursor:
-            particle_check += row[0]
-            break
-print(particle_check)
-
-# output as shapefiles
-# remove unecessary fields
-fcs = arcpy.ListFeatureClasses()
-fcs.remove('seagrass_all_split')
-for fc in fcs:
-    arcpy.FeatureClassToShapefile_conversion(fc, sg_split_folder)
-    arcpy.DeleteField_management(os.path.join(sg_split_folder, fc + '.shp'), ['Shape_Area', 'Shape_Leng', 'split'])
-
-
