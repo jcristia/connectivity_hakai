@@ -21,7 +21,7 @@ import numpy as np
 fig_save = r'C:\Users\jcristia\Documents\GIS\MSc_Projects\Hakai\scripts_dev_scratch\sensitivity_testing\particle_num'
 root_folder = r'D:\Hakai\script_runs\seagrass\seagrass_20200205'
 file = r'seagrass_20200205_{}\outputs\shp\connectivity_sg1_pld45.shp'
-factor = [1, 2, 4, 8, 16]
+factor = [1, 2, 4, 8, 16, 32]
 conn = []
 for f in range(1,len(factor)+1):
     conn.append(os.path.join(root_folder, file.format(f)))
@@ -109,9 +109,9 @@ cols = gdf_us.columns
 for i in range(1,len(cols[1:])+1):
     df['step_' + str(i)] = np.where(gdf_us[cols[i-1]].isna(), gdf_us[cols[i]], np.NaN)
 df.mean()
-np.nanmean(df['step_4'])
+np.nanmean(df['step_5'])
 df.median() # this shows what I am looking for: a clear drop between 2 and 4x and then things stay low
-np.nanmedian(df['step_4'])  # I don't think the nanmean makes a difference
+np.nanmedian(df['step_5'])  # I don't think the nanmean makes a difference
 #hist = df.hist()
 #plt.show()
 
