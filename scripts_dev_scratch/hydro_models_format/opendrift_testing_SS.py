@@ -1,4 +1,4 @@
-filename = r'D:\Hakai\models\salishsea\salishseacast_20170101_20170316\forcing\SalishSea_1h_20170101_20170105_opendrift.nc'
+filename = r"D:\Hakai\models\salishsea\salishseacast\forcing\SalishSea_1h_20170101_20170316_opendrift.nc"
 
 from opendrift.models.oceandrift import OceanDrift
 o = OceanDrift(loglevel=0)
