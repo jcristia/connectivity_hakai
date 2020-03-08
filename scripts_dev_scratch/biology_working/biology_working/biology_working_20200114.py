@@ -57,6 +57,7 @@ settlement_apply = True
 # mortality
 mortality_rate = 0.15 # instantaneous daily rate
 mort_period = 8 # after how many time_step_outputs to apply mortality rate (MAKE THIS A FACTOR OF 24). The mortality rate will be scaled appropriately so that still matches the daily rate. This option is given because it seems uncessary to apply it at every time step, but for some species with short PLDs, it will make sense to apply it more often than once per day. If mortality rate is 0, the also set this to 0.
+# for additional notes on the mortality rate refer to my notes in evernote and to the google spreadsheet with the individual values
 
 # is this a backwards run?
 backwards_run = False
@@ -65,7 +66,7 @@ backwards_run = False
 # I run opendrift simulations for what I expect the max PLD to be that I am considering. Then in this script I can set a smaller PLD and see which connections are made if I had only run the simulation up to a certain timestep.
 # I need to do PLDs all at once on each run of this script because mortality is random and I want all PLDs done on one random selection of particles instead of on different selections.
 # Provide PLDs in a list in units of days
-plds = [1, 5, 10, 15]
+plds = [1, 3, 7, 21, 60]
 
 
 
