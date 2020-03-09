@@ -656,7 +656,11 @@ for shp in shapefiles:
             if pld_int > len(timestep):
                 logging.error("PLD provided is greater than length of timestep")
                 break
-            conn_lines_out = os.path.join(output_folder, 'connectivity_' + base + '_pld' + str(pld) + '.shp')
+            if pld < 10:
+                pld_str = '0' + str(pld)
+            else:
+                pld_str = str(pld)
+            conn_lines_out = os.path.join(output_folder, 'connectivity_' + base + '_pld' + pld_str + '.shp')
             connection_lines(shp_out, seagrass_og, seagrass_crs, conn_lines_out, date_start, pld_int, pld)
 
 
