@@ -10,6 +10,7 @@ import geopandas
 import math
 import pandas as pd
 from shapely.geometry import LineString
+import shutil
 
 ######################
 # User inputs
@@ -17,7 +18,7 @@ from shapely.geometry import LineString
 
 # folder structure
 root = r'D:\Hakai\script_runs\seagrass\{}\seagrass_{}\outputs\shp'
-project_folder = 'seagrass_20200310_SS201108'
+project_folder = 'seagrass_20200309_SS201705'
 
 # number of sub folders:
 subfolders = 9
@@ -51,10 +52,10 @@ if not os.path.exists(out):
 
 # copy in centroids
 # just need to do this once since each sub folder has the centroids of all meadows
-centroids_in = os.path.join(root.format(project_folder, 1), centroids)
-centroids_out = os.path.join(out, centroids)
-if not os.path.isfile(centroids_out):
-    arcpy.Copy_management(centroids_in, centroids_out)
+if not os.path.isfile(os.path.join(out, centroids)):
+    for file in os.listdir(root.format(project_folder, 1)):
+        if file.startswith(centroids.split('.')[0]):
+            shutil.copyfile(os.path.join(root.format(project_folder, 1), file), os.path.join(out, file))
 
 # merge destination points
 # ACTUALLY, this results in way too many points and often crashes.
