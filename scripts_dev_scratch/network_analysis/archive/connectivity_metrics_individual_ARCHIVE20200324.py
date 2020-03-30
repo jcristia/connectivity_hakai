@@ -1,3 +1,14 @@
+# NOTE 2020_03_28:
+# This is archived. For now, I'm not focused on any of these metrics for my results. Don't waste time on it until it is necessary.
+# If I go back to this: for every metric, remove self connections once I go to Pandas. Most of these metrics have to do with traversing a network. I don't think self connections are relevant.
+
+
+
+
+
+
+
+
 """ This script calculates connectivity metrics using the resulting connectivity lines """
 ''' Run the file prep script before this script '''
 
