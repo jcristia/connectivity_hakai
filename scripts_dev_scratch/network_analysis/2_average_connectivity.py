@@ -7,7 +7,7 @@ import pandas as pd
 import geopandas as gp
 
 # input
-shp_folder = r'D:\Hakai\script_runs\seagrass\seagrass_20200310_SS201108\shp_merged'
+shp_folder = r'D:\Hakai\script_runs\seagrass\seagrass_20200327_SS201408\shp_merged'
 file = 'connectivity_pld{}.shp'
 plds = ['01', '03', '07', '21', '60']
 shp_out = 'connectivity_average.shp'

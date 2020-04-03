@@ -1,4 +1,4 @@
-# To run, check the 'local_add' path, and change the file name in the load loop, the date range, and the filename in the time loop.
+# To run, check the 'local_add' path, and change the file name and dates.
 # This is set up to read from nc files with u/v info stored in 1 file
 # If I need to use it for u/v stored in separate files (as they would be if you download them directly) then change the file name in the load loop (an example is commented out), and change the filename in the time loop (an example is commented out)
 # ALSO, the slicing now changes since there is no depth dimension. I have commmented out areas where this has changed.
@@ -19,8 +19,8 @@ paths = {
     'local_add': r'salishseacast'
 }
 
-filename = 'ssc_20170801_20171014.nc'
-dates = ['2017 Aug 01 00:30', '2017 Oct 14 23:30']
+filename = 'ssc_20140801_20141014.nc'
+dates = ['2014 Aug 01 00:30', '2014 Oct 14 23:30']
 
 def unstagger(u, v):
     """Unstagger velocities from u,v points to t points

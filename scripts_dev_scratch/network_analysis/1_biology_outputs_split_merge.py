@@ -18,7 +18,7 @@ import shutil
 
 # folder structure
 root = r'D:\Hakai\script_runs\seagrass\{}\seagrass_{}\outputs\shp'
-project_folder = 'seagrass_20200309_SS201705'
+project_folder = 'seagrass_20200327_SS201408'
 
 # number of sub folders:
 subfolders = 9

@@ -9,7 +9,7 @@ import pandas as pd
 import geopandas as gp
 
 # inputs / outputs
-root = r'D:\Hakai\script_runs\seagrass\seagrass_20200228_SS201701'
+root = r'D:\Hakai\script_runs\seagrass\seagrass_20200327_SS201408'
 seagrass_cent = r'shp_merged\patch_centroids.shp'
 out_folder = r'conefor'
 conn_shp = r'shp_merged\connectivity_average.shp'

@@ -138,9 +138,9 @@ indices = {'gridX': slice(0, 398), 'gridY': slice(0, 898), 'depth': 0}
 variables = ['uVelocity', 'vVelocity']
 
 dateranges = [
-    (datetime(2017, 1, 1), datetime(2017, 3, 16)),
-    (datetime(2017, 5, 1), datetime(2017, 7, 14)),
-    (datetime(2017, 8, 1), datetime(2017, 10, 14)),
+    (datetime(2014, 1, 1), datetime(2014, 3, 16)),
+    (datetime(2014, 5, 1), datetime(2014, 7, 14)),
+    (datetime(2014, 8, 1), datetime(2014, 10, 14)),
 ]
 
 for daterange in dateranges:

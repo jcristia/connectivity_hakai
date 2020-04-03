@@ -62,7 +62,7 @@ import seaborn as sns
 # User input
 #################
 
-root = r'D:\Hakai\script_runs\seagrass\seagrass_20200310_SS201108'
+root = r'D:\Hakai\script_runs\seagrass\seagrass_20200327_SS201408'
 
 shp_conn = r'shp_merged\connectivity_average.shp' #connectivity average lines shapefile
 shp_pts = r'conefor\conefor_metrics.shp' #output from the conefor script
