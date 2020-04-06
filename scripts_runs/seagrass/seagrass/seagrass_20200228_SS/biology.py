@@ -57,6 +57,7 @@ settlement_apply = True
 # mortality
 mortality_rate = 0.15 # instantaneous daily rate
 mort_period = 8 # after how many time_step_outputs to apply mortality rate (MAKE THIS A FACTOR OF 24). The mortality rate will be scaled appropriately so that still matches the daily rate. This option is given because it seems uncessary to apply it at every time step, but for some species with short PLDs, it will make sense to apply it more often than once per day. If mortality rate is 0, the also set this to 0.
+# for additional notes on the mortality rate refer to my notes in evernote and to the google spreadsheet with the individual values
 
 # is this a backwards run?
 backwards_run = False
@@ -112,9 +113,46 @@ def get_particle_originPoly(seagrass, lon, lat, traj, seagrass_crs, lat_np, lon_
     logging.info("Getting origin coordinates for points that didn't fall within a polygon. The following particles...")
     print(origin_temp)
 
+
+    # for additional notes on the following section, see evernote
+    # There are many cases to account for.
+
+    # IF FIRST OR LAST PARTICLE IS NA, figure out the uID
+    # do this outside of the following for loop so that I don't have to constantly check this case
+    max_index = len(origin) - 1
+    if origin_temp.index[0] == 0:
+        # I'm trying to find the uID for this first particle. However, since uIDs don't necessarily start at 1, there is no way to know what it is simply based on order. I can't infer from the particles after it because there might be multiple 1 particle patches in a row with NA.
+        # Therefore I think the only is to get a distance from this point to all 970 patches then take the minimum value and corresponding patch.
+        # since it is a super rare case that this will ever happen I don't think I need to worry too much about performance.
+        uIDs = []
+        distances = []
+        point = origin_temp.iloc[0].o_coords
+        for poly in shp:
+            uIDs.append(poly['properties']['uID'])
+            distance = point.distance(shape(poly["geometry"]))
+            distances.append(distance)
+        min_dist_index = distances.index(min(distances))
+        closest_uID = uIDs[min_dist_index]
+        origin['uID'][0] = closest_uID
+    if origin_temp.index[-1] == origin.index[-1]:
+        uIDs = []
+        distances = []
+        point = origin_temp.iloc[-1].o_coords
+        for poly in shp:
+            uIDs.append(poly['properties']['uID'])
+            distance = point.distance(shape(poly["geometry"]))
+            distances.append(distance)
+        min_dist_index = distances.index(min(distances))
+        closest_uID = uIDs[min_dist_index]
+        origin.loc[origin.index[-1], 'uID'] = closest_uID # I tried using iloc and -1, and even though I didn't get an error, it didn't work
+
+    # RESET origin_temp so that the first and last particles have defined uIDs
+    origin_temp = origin[origin.uID.isnull()]
+
     for row in origin_temp.itertuples(index=True):
+
         index = row[0]
-        # 20190502 In the future may also need to consider if it is the very first or last point in the entire series that is NaN, in which case I will get an error.
+
         before = origin["uID"][index-1]
         after = origin["uID"][index+1]
 
@@ -143,30 +181,35 @@ def get_particle_originPoly(seagrass, lon, lat, traj, seagrass_crs, lat_np, lon_
                     eureka = False
                 i += 1
             point = row[1]
-            for poly in shp:
-                if poly['properties']['uID'] == before:
-                    f_before = shape(poly["geometry"])
-                if poly['properties']['uID'] == after:
-                    f_after = shape(poly["geometry"])
-            distance_b = point.distance(f_before)
-            distance_a = point.distance(f_after)
-            if distance_b < distance_a:
-                origin['uID'][index] = before
-            else:
-                origin['uID'][index] = after
+
+            # account for the case where before and after may not be exactly 1 apart (e.g. multiple 1 particle NA patches in a row)
+            # check point against all patches in that range
+            uIDs = [*range(int(before), int(after+1))]  # * unpacks
+            distances = []
+            for uID in uIDs:
+                # "shapefiles don't have standard and interoperable attribute indexes and so you have to loop over all features and test them no matter what. If you want high performing indexes, load your shapefiles into a relational database and create all the indexes you need."
+                for poly in shp:
+                    if poly['properties']['uID'] == uID:
+                        distance = point.distance(shape(poly["geometry"]))
+                        distances.append(distance)
+            min_dist_index = distances.index(min(distances))
+            closest_uID = uIDs[min_dist_index]
+            origin['uID'][index] = closest_uID
+
         else: # if the uID before and after are different
+            # KEEP THIS ELSE, SINCE MOST PARTICLES THAT ARE NA WILL LIKELY FALL INTO IT. Then I don't need to do the while loops above.
             point = row[1]
-            for poly in shp:
-                if poly['properties']['uID'] == before:
-                    f_before = shape(poly["geometry"])
-                if poly['properties']['uID'] == after:
-                    f_after = shape(poly["geometry"])
-            distance_b = point.distance(f_before)
-            distance_a = point.distance(f_after)
-            if distance_b < distance_a:
-                origin['uID'][index] = before
-            else:
-                origin['uID'][index] = after
+            uIDs = [*range(int(before), int(after+1))]  # * unpacks
+            distances = []
+            for uID in uIDs:
+                # "shapefiles don't have standard and interoperable attribute indexes and so you have to loop over all features and test them no matter what. If you want high performing indexes, load your shapefiles into a relational database and create all the indexes you need."
+                for poly in shp:
+                    if poly['properties']['uID'] == uID:
+                        distance = point.distance(shape(poly["geometry"]))
+                        distances.append(distance)
+            min_dist_index = distances.index(min(distances))
+            closest_uID = uIDs[min_dist_index]
+            origin['uID'][index] = closest_uID
     
     # I tried to make certain columns integers upon creation, but it didn't work
     #origin.uID = origin.uID.astype('int64')
@@ -246,6 +289,7 @@ def settlement(settlement_apply, origin, seagrass_buff, timestep, status, lon, l
             t_active = np.setdiff1d(t_active, dest_df.traj_id.values)
 
             if precomp > 0: # remove from p_active ones that are in their precomp period
+                # I think if precomp is greater than the total length of timestep then I get an error here, but everything else still runs. This would only be for super short runs (e.g. 2 hours), so I'm not going to worry about it.
                 for period in precomp_range:
                     if i in range(period[0],period[1]):
                         period_index = precomp_range.index(period)
@@ -558,9 +602,10 @@ def connection_lines(shp_out, seagrass_og, seagrass_crs, conn_lines_out, date_st
         else:
             # normalize the quantites to 0.5 - 1 range (or I can do 0-1 but then the smallest one won't show up)
             #quantity_norm = 0.5 * (row[2] - quantity_min) / float(quantity_max - quantity_min) + 0.5
-            quantity_norm = (row[2] - quantity_min) / float(quantity_max - quantity_min)
-            radius_adj = radius * quantity_norm
-            geom_line = LineString(CircleCoords(centroid_origin.x.tolist()[0], centroid_origin.y.tolist()[0], radius_adj, 90))
+            if quantity_min != quantity_max:
+                quantity_norm = (row[2] - quantity_min) / float(quantity_max - quantity_min)
+                radius = radius * quantity_norm
+            geom_line = LineString(CircleCoords(centroid_origin.x.tolist()[0], centroid_origin.y.tolist()[0], radius, 90))
     
         connection_lines.loc[conn_i] = [row[0],row[1],float(row[2]),float(total),row[2]/float(total), time_int,geom_line, pld]
         conn_i += 1
@@ -568,6 +613,7 @@ def connection_lines(shp_out, seagrass_og, seagrass_crs, conn_lines_out, date_st
     connection_lines['date_start'] = date_start   
     connection_lines = geopandas.GeoDataFrame(connection_lines, geometry='line')
     connection_lines.crs = seagrass_crs
+    connection_lines = connection_lines.infer_objects()
     connection_lines.to_file(filename=conn_lines_out, driver='ESRI Shapefile')
 
 #### output patch centroids to shapefile (for use in network analysis) ####
@@ -627,13 +673,7 @@ for shp in shapefiles:
 
     origin = get_particle_originPoly(seagrass, lon, lat, traj, seagrass_crs, lat_np, lon_np, backwards_run)
 
-    if precomp == 0:
-        timesteps_with_release = None
-        precomp_end_timestep = None
-        precomp_range = None
-        particle_range = None
-    else:
-        timesteps_with_release, precomp_end_timestep, precomp_range, particle_range = calc_precomp(precomp, time_step_output, particles_per_release, interval_of_release, num_of_releases, traj)
+    timesteps_with_release, precomp_end_timestep, precomp_range, particle_range = calc_precomp(precomp, time_step_output, particles_per_release, interval_of_release, num_of_releases, traj)
 
     origin_dest = settlement(settlement_apply, origin, seagrass_buff, timestep, status, lon, lat, traj, seagrass_crs, precomp, precomp_range, particle_range, mortality_rate)
 
@@ -655,7 +695,11 @@ for shp in shapefiles:
             if pld_int > len(timestep):
                 logging.error("PLD provided is greater than length of timestep")
                 break
-            conn_lines_out = os.path.join(output_folder, 'connectivity_' + base + '_pld' + str(pld) + '.shp')
+            if pld < 10:
+                pld_str = '0' + str(pld)
+            else:
+                pld_str = str(pld)
+            conn_lines_out = os.path.join(output_folder, 'connectivity_' + base + '_pld' + pld_str + '.shp')
             connection_lines(shp_out, seagrass_og, seagrass_crs, conn_lines_out, date_start, pld_int, pld)
 
 
