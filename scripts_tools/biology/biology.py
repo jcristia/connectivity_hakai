@@ -33,12 +33,12 @@ logging.basicConfig(level=logging.INFO)
 # if specific structure of input names change (seagrass_.nc vs seagrass_2019_.nc), then check additional variables at bottom
 ###################
 
-sg_path = r'C:\Users\jcristia\Documents\GIS\MSc_Projects\Hakai\scripts_dev_scratch\biology_working\biology_working\working_simulation\seagrass_split' # where input shapefiles are stored (for cluster runs, this will be the same folder as the script).
+sg_path = r'C:\Users\jcristia\Documents\GIS\MSc_Projects\Hakai\scripts_dev_scratch\biology_working\biology_working\seagrass_20200403_ISSUE\seagrass_split' # where input shapefiles are stored (for cluster runs, this will be the same folder as the script).
 # its assumed that every shapefile within this folder were used in the opendrift simulations. Other file types can be present here, but you can't have shapefiles that weren't used.
-input_folder = r'C:\Users\jcristia\Documents\GIS\MSc_Projects\Hakai\scripts_dev_scratch\biology_working\biology_working\working_simulation\outputs' # where nc and npy files are output
-output_folder = r'C:\Users\jcristia\Documents\GIS\MSc_Projects\Hakai\scripts_dev_scratch\biology_working\biology_working\working_simulation\outputs\shp'
-seagrass_og = r'C:\Users\jcristia\Documents\GIS\MSc_Projects\Hakai\scripts_dev_scratch\biology_working\biology_working\working_simulation\seagrass_og' # we still need the full original seagrass dataset for other checks even if we are using split up versions
-seagrass_buff = r'C:\Users\jcristia\Documents\GIS\MSc_Projects\Hakai\scripts_dev_scratch\biology_working\biology_working\working_simulation\seagrass_buff'  # buffered by 100m just for checking settlement. This is to account for seagrass polys that have slivers between coastline
+input_folder = r'C:\Users\jcristia\Documents\GIS\MSc_Projects\Hakai\scripts_dev_scratch\biology_working\biology_working\seagrass_20200403_ISSUE\outputs' # where nc and npy files are output
+output_folder = r'C:\Users\jcristia\Documents\GIS\MSc_Projects\Hakai\scripts_dev_scratch\biology_working\biology_working\seagrass_20200403_ISSUE\outputs\shp'
+seagrass_og = r'C:\Users\jcristia\Documents\GIS\MSc_Projects\Hakai\scripts_dev_scratch\biology_working\biology_working\seagrass_20200403_ISSUE\seagrass_og' # we still need the full original seagrass dataset for other checks even if we are using split up versions
+seagrass_buff = r'C:\Users\jcristia\Documents\GIS\MSc_Projects\Hakai\scripts_dev_scratch\biology_working\biology_working\seagrass_20200403_ISSUE\seagrass_buff'  # buffered by 100m just for checking settlement. This is to account for seagrass polys that have slivers between coastline
 seagrass_crs = {'init' :'epsg:3005'}
 
 # if I am using 'stranding' in opendrift, then I likely need at least a small precompetency period because everything just ends up settling at home otherwise
@@ -48,7 +48,7 @@ precomp = 4
 
 # get these values from the simulation script
 time_step_output = 0.5 # in hours. It will be in seconds in the opendrift script
-interval_of_release = 1 # in hours (interval can't be less than time step output) (if no delayed release then just put same value as time_step_output)
+interval_of_release = 4 # in hours (interval can't be less than time step output) (if no delayed release then just put same value as time_step_output)
 num_of_releases = 84 # if no delayed release then just put 1
 
 # allow particles to settle?
@@ -113,9 +113,46 @@ def get_particle_originPoly(seagrass, lon, lat, traj, seagrass_crs, lat_np, lon_
     logging.info("Getting origin coordinates for points that didn't fall within a polygon. The following particles...")
     print(origin_temp)
 
+
+    # for additional notes on the following section, see evernote
+    # There are many cases to account for.
+
+    # IF FIRST OR LAST PARTICLE IS NA, figure out the uID
+    # do this outside of the following for loop so that I don't have to constantly check this case
+    max_index = len(origin) - 1
+    if origin_temp.index[0] == 0:
+        # I'm trying to find the uID for this first particle. However, since uIDs don't necessarily start at 1, there is no way to know what it is simply based on order. I can't infer from the particles after it because there might be multiple 1 particle patches in a row with NA.
+        # Therefore I think the only is to get a distance from this point to all 970 patches then take the minimum value and corresponding patch.
+        # since it is a super rare case that this will ever happen I don't think I need to worry too much about performance.
+        uIDs = []
+        distances = []
+        point = origin_temp.iloc[0].o_coords
+        for poly in shp:
+            uIDs.append(poly['properties']['uID'])
+            distance = point.distance(shape(poly["geometry"]))
+            distances.append(distance)
+        min_dist_index = distances.index(min(distances))
+        closest_uID = uIDs[min_dist_index]
+        origin['uID'][0] = closest_uID
+    if origin_temp.index[-1] == origin.index[-1]:
+        uIDs = []
+        distances = []
+        point = origin_temp.iloc[-1].o_coords
+        for poly in shp:
+            uIDs.append(poly['properties']['uID'])
+            distance = point.distance(shape(poly["geometry"]))
+            distances.append(distance)
+        min_dist_index = distances.index(min(distances))
+        closest_uID = uIDs[min_dist_index]
+        origin.loc[origin.index[-1], 'uID'] = closest_uID # I tried using iloc and -1, and even though I didn't get an error, it didn't work
+
+    # RESET origin_temp so that the first and last particles have defined uIDs
+    origin_temp = origin[origin.uID.isnull()]
+
     for row in origin_temp.itertuples(index=True):
+
         index = row[0]
-        # 20190502 In the future may also need to consider if it is the very first or last point in the entire series that is NaN, in which case I will get an error.
+
         before = origin["uID"][index-1]
         after = origin["uID"][index+1]
 
@@ -144,30 +181,35 @@ def get_particle_originPoly(seagrass, lon, lat, traj, seagrass_crs, lat_np, lon_
                     eureka = False
                 i += 1
             point = row[1]
-            for poly in shp:
-                if poly['properties']['uID'] == before:
-                    f_before = shape(poly["geometry"])
-                if poly['properties']['uID'] == after:
-                    f_after = shape(poly["geometry"])
-            distance_b = point.distance(f_before)
-            distance_a = point.distance(f_after)
-            if distance_b < distance_a:
-                origin['uID'][index] = before
-            else:
-                origin['uID'][index] = after
+
+            # account for the case where before and after may not be exactly 1 apart (e.g. multiple 1 particle NA patches in a row)
+            # check point against all patches in that range
+            uIDs = [*range(int(before), int(after+1))]  # * unpacks
+            distances = []
+            for uID in uIDs:
+                # "shapefiles don't have standard and interoperable attribute indexes and so you have to loop over all features and test them no matter what. If you want high performing indexes, load your shapefiles into a relational database and create all the indexes you need."
+                for poly in shp:
+                    if poly['properties']['uID'] == uID:
+                        distance = point.distance(shape(poly["geometry"]))
+                        distances.append(distance)
+            min_dist_index = distances.index(min(distances))
+            closest_uID = uIDs[min_dist_index]
+            origin['uID'][index] = closest_uID
+
         else: # if the uID before and after are different
+            # KEEP THIS ELSE, SINCE MOST PARTICLES THAT ARE NA WILL LIKELY FALL INTO IT. Then I don't need to do the while loops above.
             point = row[1]
-            for poly in shp:
-                if poly['properties']['uID'] == before:
-                    f_before = shape(poly["geometry"])
-                if poly['properties']['uID'] == after:
-                    f_after = shape(poly["geometry"])
-            distance_b = point.distance(f_before)
-            distance_a = point.distance(f_after)
-            if distance_b < distance_a:
-                origin['uID'][index] = before
-            else:
-                origin['uID'][index] = after
+            uIDs = [*range(int(before), int(after+1))]  # * unpacks
+            distances = []
+            for uID in uIDs:
+                # "shapefiles don't have standard and interoperable attribute indexes and so you have to loop over all features and test them no matter what. If you want high performing indexes, load your shapefiles into a relational database and create all the indexes you need."
+                for poly in shp:
+                    if poly['properties']['uID'] == uID:
+                        distance = point.distance(shape(poly["geometry"]))
+                        distances.append(distance)
+            min_dist_index = distances.index(min(distances))
+            closest_uID = uIDs[min_dist_index]
+            origin['uID'][index] = closest_uID
     
     # I tried to make certain columns integers upon creation, but it didn't work
     #origin.uID = origin.uID.astype('int64')
@@ -247,6 +289,7 @@ def settlement(settlement_apply, origin, seagrass_buff, timestep, status, lon, l
             t_active = np.setdiff1d(t_active, dest_df.traj_id.values)
 
             if precomp > 0: # remove from p_active ones that are in their precomp period
+                # I think if precomp is greater than the total length of timestep then I get an error here, but everything else still runs. This would only be for super short runs (e.g. 2 hours), so I'm not going to worry about it.
                 for period in precomp_range:
                     if i in range(period[0],period[1]):
                         period_index = precomp_range.index(period)
@@ -559,9 +602,10 @@ def connection_lines(shp_out, seagrass_og, seagrass_crs, conn_lines_out, date_st
         else:
             # normalize the quantites to 0.5 - 1 range (or I can do 0-1 but then the smallest one won't show up)
             #quantity_norm = 0.5 * (row[2] - quantity_min) / float(quantity_max - quantity_min) + 0.5
-            quantity_norm = (row[2] - quantity_min) / float(quantity_max - quantity_min)
-            radius_adj = radius * quantity_norm
-            geom_line = LineString(CircleCoords(centroid_origin.x.tolist()[0], centroid_origin.y.tolist()[0], radius_adj, 90))
+            if quantity_min != quantity_max:
+                quantity_norm = (row[2] - quantity_min) / float(quantity_max - quantity_min)
+                radius = radius * quantity_norm
+            geom_line = LineString(CircleCoords(centroid_origin.x.tolist()[0], centroid_origin.y.tolist()[0], radius, 90))
     
         connection_lines.loc[conn_i] = [row[0],row[1],float(row[2]),float(total),row[2]/float(total), time_int,geom_line, pld]
         conn_i += 1
@@ -569,6 +613,7 @@ def connection_lines(shp_out, seagrass_og, seagrass_crs, conn_lines_out, date_st
     connection_lines['date_start'] = date_start   
     connection_lines = geopandas.GeoDataFrame(connection_lines, geometry='line')
     connection_lines.crs = seagrass_crs
+    connection_lines = connection_lines.infer_objects()
     connection_lines.to_file(filename=conn_lines_out, driver='ESRI Shapefile')
 
 #### output patch centroids to shapefile (for use in network analysis) ####
@@ -628,13 +673,7 @@ for shp in shapefiles:
 
     origin = get_particle_originPoly(seagrass, lon, lat, traj, seagrass_crs, lat_np, lon_np, backwards_run)
 
-    if precomp == 0:
-        timesteps_with_release = None
-        precomp_end_timestep = None
-        precomp_range = None
-        particle_range = None
-    else:
-        timesteps_with_release, precomp_end_timestep, precomp_range, particle_range = calc_precomp(precomp, time_step_output, particles_per_release, interval_of_release, num_of_releases, traj)
+    timesteps_with_release, precomp_end_timestep, precomp_range, particle_range = calc_precomp(precomp, time_step_output, particles_per_release, interval_of_release, num_of_releases, traj)
 
     origin_dest = settlement(settlement_apply, origin, seagrass_buff, timestep, status, lon, lat, traj, seagrass_crs, precomp, precomp_range, particle_range, mortality_rate)
 
