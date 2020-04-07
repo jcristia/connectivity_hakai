@@ -120,7 +120,7 @@ def get_particle_originPoly(seagrass, lon, lat, traj, seagrass_crs, lat_np, lon_
     # IF FIRST OR LAST PARTICLE IS NA, figure out the uID
     # do this outside of the following for loop so that I don't have to constantly check this case
     max_index = len(origin) - 1
-    if origin_temp.index[0] == 0:
+    if (len(origin_temp) > 0) and (origin_temp.index[0] == 0):
         # I'm trying to find the uID for this first particle. However, since uIDs don't necessarily start at 1, there is no way to know what it is simply based on order. I can't infer from the particles after it because there might be multiple 1 particle patches in a row with NA.
         # Therefore I think the only is to get a distance from this point to all 970 patches then take the minimum value and corresponding patch.
         # since it is a super rare case that this will ever happen I don't think I need to worry too much about performance.
@@ -134,7 +134,7 @@ def get_particle_originPoly(seagrass, lon, lat, traj, seagrass_crs, lat_np, lon_
         min_dist_index = distances.index(min(distances))
         closest_uID = uIDs[min_dist_index]
         origin['uID'][0] = closest_uID
-    if origin_temp.index[-1] == origin.index[-1]:
+    if (len(origin_temp) > 0) and (origin_temp.index[-1] == origin.index[-1]):
         uIDs = []
         distances = []
         point = origin_temp.iloc[-1].o_coords
