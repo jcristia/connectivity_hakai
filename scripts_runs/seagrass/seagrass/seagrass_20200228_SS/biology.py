@@ -184,7 +184,7 @@ def get_particle_originPoly(seagrass, lon, lat, traj, seagrass_crs, lat_np, lon_
 
             # account for the case where before and after may not be exactly 1 apart (e.g. multiple 1 particle NA patches in a row)
             # check point against all patches in that range
-            uIDs = [*range(int(before), int(after+1))]  # * unpacks
+            uIDs = list(range(int(before), int(after+1)))  
             distances = []
             for uID in uIDs:
                 # "shapefiles don't have standard and interoperable attribute indexes and so you have to loop over all features and test them no matter what. If you want high performing indexes, load your shapefiles into a relational database and create all the indexes you need."
@@ -199,7 +199,7 @@ def get_particle_originPoly(seagrass, lon, lat, traj, seagrass_crs, lat_np, lon_
         else: # if the uID before and after are different
             # KEEP THIS ELSE, SINCE MOST PARTICLES THAT ARE NA WILL LIKELY FALL INTO IT. Then I don't need to do the while loops above.
             point = row[1]
-            uIDs = [*range(int(before), int(after+1))]  # * unpacks
+            uIDs = list(range(int(before), int(after+1))) 
             distances = []
             for uID in uIDs:
                 # "shapefiles don't have standard and interoperable attribute indexes and so you have to loop over all features and test them no matter what. If you want high performing indexes, load your shapefiles into a relational database and create all the indexes you need."
