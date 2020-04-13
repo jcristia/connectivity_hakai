@@ -38,9 +38,7 @@ G = nx.from_pandas_edgelist(df, 'from_id', 'to_id', ['prob_avg_negLN'], nx.DiGra
 p_nodes = nx.shortest_path(G, weight='prob_avg_negLN', method='dijkstra')
 p_length = dict(nx.shortest_path_length(G, weight='prob_avg_negLN', method='dijkstra'))
 
-
 # create a line shapefile of all paths
-#gdf = gp.GeoDataFrame(columns=['from_id', 'to_id', 'prob', 'geometry'])
 lines = []
 for node in p_length:
     for dest in p_length[node]:
@@ -59,9 +57,8 @@ for node in p_length:
                 geoms.append(geom.values[0])
                 i+=1
             shortest_path = ops.linemerge(geoms)
-            #gdf = gdf.append({'from_id':from_id, 'to_id':to_id, 'prob':prob, 'geometry':shortest_path}, ignore_index=True)
             lines.append([from_id, to_id, prob, shortest_path])
-    break
+
 gdf = gp.GeoDataFrame(lines, columns=['from_id', 'to_id', 'prob', 'geometry'])
 gdf.crs = df.crs
 gdf['length'] = gdf.geometry.length
