@@ -61,7 +61,8 @@ for node in p_length:
             shortest_path = ops.linemerge(geoms)
             #gdf = gdf.append({'from_id':from_id, 'to_id':to_id, 'prob':prob, 'geometry':shortest_path}, ignore_index=True)
             lines.append([from_id, to_id, prob, shortest_path])
-
+    break
 gdf = gp.GeoDataFrame(lines, columns=['from_id', 'to_id', 'prob', 'geometry'])
 gdf.crs = df.crs
+gdf['length'] = gdf.geometry.length
 gdf.to_file(filename=out, driver='ESRI Shapefile')
