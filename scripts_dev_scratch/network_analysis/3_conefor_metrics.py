@@ -7,38 +7,81 @@
 import os
 import pandas as pd
 import geopandas as gp
+import matplotlib.pyplot as plt
+import numpy as np
+from math import log10, floor
 
-# inputs / outputs
-root = r'D:\Hakai\script_runs\seagrass\seagrass_20200327_SS201408'
-seagrass_cent = r'shp_merged\patch_centroids.shp'
-out_folder = r'conefor'
+# input paths
+root = r'D:\Hakai\script_runs\seagrass\seagrass_20200327_SS201405'
 conn_shp = r'shp_merged\connectivity_average.shp'
+seagrass_cent = r'shp_merged\patch_centroids.shp'
+# output paths
+main_out_folder = r'conefor'
+ind_out_folder = r'conefor_{}'
 nodefile = r'nodes_conefor.txt'
 connections_file = r'conns_conefor.txt'
 out_shp = r'conefor_metrics.shp'
 
-
-
+# DECISION: my default is to log transform and normalize, so keep these values set as True
+normalize = True
+log_transform = True # only set true if normalize also true
 
 #######################
 # set up file paths, create folder
-seagrass_cent = os.path.join(root, seagrass_cent)
-out_folder = os.path.join(root, out_folder)
-conn_shp = os.path.join(root, conn_shp)
-nodefile = os.path.join(root, out_folder, nodefile)
-connections_file = os.path.join(root, out_folder, connections_file)
+
+# main conefor folder
+out_folder = os.path.join(root, main_out_folder)
 if not os.path.exists(out_folder):
     os.mkdir(out_folder)
+
+# individual run conefor folder
+ind_out_folder = ind_out_folder.format(os.path.splitext(os.path.basename(conn_shp))[0])
+out_folder = os.path.join(root, main_out_folder, ind_out_folder)
+if not os.path.exists(out_folder):
+    os.mkdir(out_folder)
+
+conn_shp = os.path.join(root, conn_shp)
+seagrass_cent = os.path.join(root, seagrass_cent)
+nodefile = os.path.join(root, out_folder, nodefile)
+connections_file = os.path.join(root, out_folder, connections_file)
 
 
 #######################
 # convert shapefiles to correct conefor table format
 
 df_nodes = gp.read_file(seagrass_cent)
-df_nodes.to_csv(nodefile, sep='\t', columns=['uID', 'area'], header=False, index=False)
+if not normalize: # use area as is
+    df_nodes.to_csv(nodefile, sep='\t', columns=['uID', 'area'], header=False, index=False)
+elif not log_transform: # normalize but don't transform
+    max_area = df_nodes['area'].max()
+    min_area = df_nodes['area'].min()
+    min_area = 0 # normalize, but use 0 as min
+    df_nodes['area_norm'] = (df_nodes['area']-min_area) / (max_area - min_area)
+    df_nodes = df_nodes.drop(columns=['area'])
+    df_nodes.to_csv(nodefile, sep='\t', columns=['uID', 'area_norm'], header=False, index=False)
+else: # transform and normalize
+    df_nodes['area_log'] = np.log10(df_nodes['area'])
+    max_area = df_nodes['area_log'].max()
+    min_area = df_nodes['area_log'].min()
+    min_area = 0 # normalize, but use 0 as min
+    df_nodes['area_norm'] = (df_nodes['area_log']-min_area) / (max_area - min_area)
+    df_nodes = df_nodes.drop(columns=['area', 'area_log'])
+    df_nodes.to_csv(nodefile, sep='\t', columns=['uID', 'area_norm'], header=False, index=False)
+
+# plot (testing purposes)
+#fig, ax = plt.subplots()
+##ax.set(xscale='log')
+##min = df_nodes.area_norm.min()
+##min_round = 10**(int(floor(log10(abs(min)))))
+##bins = np.logspace(np.log10(min_round),np.log10(1.0), 50)
+#ax = df_nodes['area_norm'].plot.hist()
+#plt.show()
 
 df_conn = gp.read_file(conn_shp)
-df_conn.to_csv(connections_file, sep='\t', columns=['from_id', 'to_id', 'prob_avg'], header=False, index=False)
+if 'prob_avg' in df_conn.columns:
+    df_conn.to_csv(connections_file, sep='\t', columns=['from_id', 'to_id', 'prob_avg'], header=False, index=False)
+elif 'prob' in df_conn.columns:
+    df_conn.to_csv(connections_file, sep='\t', columns=['from_id', 'to_id', 'prob'], header=False, index=False)
 
 
 #######################
@@ -70,6 +113,8 @@ print(command)
 node_importances = os.path.join(out_folder, "node_importances.txt")
 df_node_imp = pd.read_csv(node_importances, sep='\t')
 df_node_imp = df_node_imp.drop(['Unnamed: 11'], axis=1)
+# add in interconnectivity attribute, which is flux + connector
+df_node_imp['dPCinter'] = df_node_imp['dPCflux'] + df_node_imp['dPCconnector']
 # get geometry and attributes from original shapefile
 gdf = gp.read_file(seagrass_cent)
 # join to get geomtery
