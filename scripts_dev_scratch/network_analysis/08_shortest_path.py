@@ -44,12 +44,12 @@ for node in p_length:
     for dest in p_length[node]:
         from_id = node
         to_id = dest
-        # convert probabilities back
-        prob = np.exp(-(p_length[node][dest]))
+        # don't convert probabilities back, they are way too small
+        prob = p_length[node][dest]
         # get individual lines in path
         path = p_nodes[from_id][to_id]
         # from individual lines, build one line
-        if len(path) > 1:
+        if len(path) > 2:
             i=0
             geoms = []
             while i < len(path)-1:
@@ -59,7 +59,7 @@ for node in p_length:
             shortest_path = ops.linemerge(geoms)
             lines.append([from_id, to_id, prob, shortest_path])
 
-gdf = gp.GeoDataFrame(lines, columns=['from_id', 'to_id', 'prob', 'geometry'])
+gdf = gp.GeoDataFrame(lines, columns=['from_id', 'to_id', 'prob_negLN', 'geometry'])
 gdf.crs = df.crs
 gdf['length'] = gdf.geometry.length
 gdf.to_file(filename=out, driver='ESRI Shapefile')

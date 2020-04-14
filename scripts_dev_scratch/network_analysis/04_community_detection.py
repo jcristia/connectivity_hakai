@@ -65,8 +65,8 @@ import seaborn as sns
 root = r'D:\Hakai\script_runs\seagrass\seagrass_20200327_SS201408'
 
 shp_conn = r'shp_merged\connectivity_average.shp' #connectivity average lines shapefile
-shp_pts = r'conefor\conefor_metrics.shp' #output from the conefor script
-out_shp = r'shp_merged\patch_centroids_metrics.shp' #output pt shapefile that will contain conefor metrics and community membership as attributes
+shp_pts = r'conefor\conefor_connectivity_average\conefor_metrics.shp' #output from the conefor script
+out_shp = r'shp_merged\patch_centroids_metrics_commavg.shp' #output pt shapefile that will contain conefor metrics and community membership as attributes
 
 
 #################
