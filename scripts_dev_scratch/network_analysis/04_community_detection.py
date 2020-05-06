@@ -62,11 +62,11 @@ import seaborn as sns
 # User input
 #################
 
-root = r'D:\Hakai\script_runs\seagrass\seagrass_20200327_SS201408'
+root = r'D:\Hakai\script_runs\seagrass\output_figs_SALISHSEA_ALL'
 
-shp_conn = r'shp_merged\connectivity_average.shp' #connectivity average lines shapefile
-shp_pts = r'conefor\conefor_connectivity_average\conefor_metrics.shp' #output from the conefor script
-out_shp = r'shp_merged\patch_centroids_metrics_commavg.shp' #output pt shapefile that will contain conefor metrics and community membership as attributes
+shp_conn = r'connectivity_average_ALL.shp' #connectivity average lines shapefile
+shp_pts = r'patch_centroids_metrics_ALL.shp' #output from the conefor script
+out_shp = r'patch_centroids_metrics_ALL_commavg.shp' #output pt shapefile that will contain conefor metrics and community membership as attributes
 
 
 #################
@@ -78,7 +78,7 @@ shp_pts = os.path.join(root, shp_pts)
 out_shp = os.path.join(root, out_shp)
 
 df = gp.read_file(shp_conn)
-df = df.drop(columns=['geometry','time_int','date_start', 'totalori', 'date_start'])
+df = df.drop(columns=['freq', 'prob_stdf0', 'prob_std9', 'date', 'dateYR', 'dateSEA', 'timeintavg', 'timeintmin', 'timeintmax', 'geometry'])
 df_pts = gp.read_file(shp_pts)
 
 # CODE BELOW KEPT FOR REFERENCE
@@ -196,6 +196,7 @@ for p in range(len(partition_noselfconn_cpm)):
 
 # get geometry and attributes from original shapefile
 gdf = gp.read_file(shp_pts)
+#gdf.uID = gdf.uID.astype('int64')
 # join
 gdf_all = gdf.merge(df_c, left_on='uID', right_on='pid', how='outer')
 gdf_all = gdf_all.merge(df_c_noselfconn, left_on='uID', right_on='pidn', how='outer')

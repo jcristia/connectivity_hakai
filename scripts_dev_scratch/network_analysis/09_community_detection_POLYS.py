@@ -9,9 +9,9 @@ import shapely.affinity
 from math import atan2, degrees
 
 
-project = 'seagrass_20200327_SS201408'
-shp_pts = 'shp_merged\patch_centroids_metrics_commavg.shp'
-out_poly = 'shp_merged\patch_clusters_convexhull.shp'
+project = 'output_figs_SALISHSEA_ALL'
+shp_pts = 'patch_centroids_metrics_ALL_commavg.shp'
+out_poly = 'patch_clusters_convexhull.shp'
 
 root = r'D:\Hakai\script_runs\seagrass'
 path = os.path.join(root, project, shp_pts)
