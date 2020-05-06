@@ -12,8 +12,8 @@ import numpy as np
 from math import log10, floor
 
 # input paths
-root = r'D:\Hakai\script_runs\seagrass\seagrass_20200310_SS201105'
-conn_shp = r'shp_merged\connectivity_pld07.shp'
+root = r'D:\Hakai\script_runs\seagrass\seagrass_20200327_SS201408'
+conn_shp = r'shp_merged\connectivity_pld60.shp'
 seagrass_cent = r'shp_merged\patch_centroids.shp'
 # output paths
 main_out_folder = r'conefor'
