@@ -2,7 +2,8 @@
 /*
 !.gitignore
 !scripts_dev_scratch/
-!scripts_runs/
+!scripts_runs_cluster/
+!scripts_runs_localstage/
 !scripts_tools/
 !spatial/
 
