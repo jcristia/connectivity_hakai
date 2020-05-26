@@ -8,7 +8,8 @@ import subprocess
 # Explore
 #######
 
-filename = r'D:/Hakai/NEP36-N26_5d_20140524_20161228_grid_U_20160712-20160721.nc'
+filename = r'D:\Hakai\models\nep_nemo\Li_sample\NEP36-OPM221_1h_20070101_20111205_grid_U_2D_20101231-20110109.nc'
+filename = r'D:\Hakai\models\nep_nemo\Li_sample\NEP36-OPM221_1h_20070101_20111205_grid_V_2D_20101231-20110109.nc'
 
 dataset = nc.Dataset(filename, "r+")
 variables = dataset.variables.keys()
@@ -20,10 +21,12 @@ for var in dataset.variables.values():
     print (var)
 
 time = dataset.variables["time_counter"][:]
-depth = dataset.variables["depthu"][:] # this seems to be the center of a slice
-depth_b = dataset.variables["depthu_bounds"][:] # these are the bounds of that slice
+#depth = dataset.variables["depthu"][:] # this seems to be the center of a slice
+#depth_b = dataset.variables["depthu_bounds"][:] # these are the bounds of that slice
 lon = dataset.variables["nav_lon"]
 lat = dataset.variables["nav_lat"]
+
+# From Pramod's version:
 #lon[0] # notice how there are zeros at the end of every slice. This screws up how it gets read in by the reader. I need to crop these out.
 
 ##############################
@@ -36,23 +39,27 @@ lat = dataset.variables["nav_lat"]
 import subprocess
 import os
 import netCDF4 as nc
-path = r'D:/Hakai'
+path = r'D:/Hakai/models/nep_nemo/Li_sample'
 os.chdir(path)
 os.getcwd()
-u_file_copy = r'NEP36-N26_5d_20140524_20161228_grid_UV_20160712-20160721_COMBINED.nc' # this can just be a renamed copy of the original U file
-v_file = r'NEP36-N26_5d_20140524_20161228_grid_V_20160712-20160721.nc'
-command = '''ncks -A -v vo ''' + v_file + " " + u_file_copy
+u_file_copy = r'NEP36-OPM221_1h_20070101_20111205_grid_UV_2D_20101231-20110109_COMBINED.nc' # this can just be a renamed copy of the original U file
+v_file = r'NEP36-OPM221_1h_20070101_20111205_grid_V_2D_20101231-20110109.nc'
+command = '''ncks -A -v vos ''' + v_file + " " + u_file_copy
 subprocess.call(command)
 # check
 dataset = nc.Dataset(u_file_copy, "r+")
 for var in dataset.variables.values():
     print (var)
-uo = dataset.variables["uo"]
-vo = dataset.variables["vo"]
+uos = dataset.variables["uos"]
+vos = dataset.variables["vos"]
 
 ###########################################
 
 
+
+
+
+#FROM OLD PRAMOD VERSION OF DATA
 
 #######
 # cropping a netCDF DEPTH
