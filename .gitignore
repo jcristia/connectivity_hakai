@@ -2,7 +2,6 @@
 /*
 !.gitignore
 !scripts_dev_scratch/
-!scripts_runs_cluster/
 !scripts_runs_localstage/
 !scripts_tools/
 !spatial/
@@ -21,6 +20,7 @@ spatial/seagrass/seagrass_hakai_archive
 spatial/boundaries
 spatial/fvcom_results
 spatial/model_grids
+spatial/models
 *.csv
 *.xlsx
 *.ini
@@ -35,6 +35,8 @@ spatial/model_grids
 *.shp.xml
 *.xml
 *.shx
+*.png
+*.svg
 
 *.pyc
 
