@@ -1,6 +1,6 @@
 import netCDF4 as nc
 
-filename = r'D:\Hakai\NEP36-N26_5d_20140524_20161228_grid_UV_20160712-20160721_COMBINED_VCROPPED.nc'
+filename = r'D:\Hakai\models\nep_nemo\Li_sample\NEP36-OPM221_1h_20070101_20111205_grid_UV_2D_20101231-20110109_COMBINED.nc'
 
 from opendrift.models.oceandrift import OceanDrift
 o = OceanDrift(loglevel=20)
