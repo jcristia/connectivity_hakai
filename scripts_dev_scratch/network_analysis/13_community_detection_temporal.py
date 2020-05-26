@@ -1,6 +1,7 @@
 
+
 # temporal community detection
-# 
+
 
 import igraph as ig
 import leidenalg as la
@@ -71,6 +72,7 @@ for dir in dirs:
 # Community detection EXPLORATION
 #################
 
+membership, improvement = la.find_partition_temporal(graphs, la.ModularityVertexPartition, interslice_weight=0.1)
 # This is the default method. However, you can't apply different interslice weights.
 #membership, improvement = la.find_partition_temporal(graphs, la.ModularityVertexPartition, interslice_weight=0.1)
 
@@ -82,6 +84,7 @@ for dir in dirs:
 # The interslice link is having an effect on this. Compare membership[8] to doing just a single find_partition on the last graph:
 # partition = la.find_partition(G, la.ModularityVertexPartition, weights='weight', seed=11)
 # you can see that they are different memberships
+
 
 # Additional exploration:
 # I was confused how an optimiser was acting on the partition objest because it looked like the returned diff was just a number and partition wasn't changing (in traditional python-sense I would expect partition to be recreated as a new variable if it was going to change). However, you can see that partition does change.
@@ -101,6 +104,7 @@ for dir in dirs:
 
 G_coupling = ig.Graph.Formula("1-->2-->3-->4-->5-->6-->7-->8-->9>") # I need a <> before or after, which isn't mentioned at all by igraph, but I could not get it to work otherwise.
 # The interslice layer is itself a graph and the individual graphs are nodes. Therefore the weights are similar to my connection weights.
+
 # So perhaps I'll break it down by months. If something is in the following month then it would have a connection strength of 0.5. Then I'll decrease it proportionally from there.
 # difference between seasons is 0.5-2.5 months. Use 1.5.
 # difference between years is 2 years and 2.5 months, so 26.5 months
@@ -110,6 +114,7 @@ G_coupling = ig.Graph.Formula("1-->2-->3-->4-->5-->6-->7-->8-->9>") # I need a <
 # weight between years: 0.03
 G_coupling.es['weight'] = [0.5, 0.5, 0.03, 0.5, 0.5, 0.03, 0.5, 0.5]
 
+
 # I tested different interslice weights
 #G_coupling.es['weight'] = [1, 1, 1, 1, 1, 1, 1, 1] # this results in 68 communities, so only 1 less than above. So it isn't very sensitive at this level
 #G_coupling.es['weight'] = [0, 0, 0, 0, 0, 0, 0, 0] # this results in 600+ communities, which makes sense because we are saying that they are not connected at all through time
@@ -118,9 +123,11 @@ G_coupling.es['weight'] = [0.5, 0.5, 0.03, 0.5, 0.5, 0.03, 0.5, 0.5]
 #G_coupling.es['weight'] = [0.9, 0.9, 0.001, 0.9, 0.9, 0.001, 0.9, 0.9] #69
 # So it looks like it is pretty stable around 69 comms. It is only unstable at super low numbers. So I might as well use the way I calculated it above with 0.5 and 0.03.
 
+
 G_coupling.vs['slice'] = graphs
 
 # Then we can use the established manual procedure
+
 layers, interslice_layer, G_full = la.slices_to_layers(G_coupling)
 partitions = [la.ModularityVertexPartition(H, weights='weight') for H in layers]
 interslice_partition = la.CPMVertexPartition(interslice_layer, resolution_parameter=0, node_sizes='node_size', weights='weight')
@@ -205,6 +212,7 @@ for name, cluster in clusters:
 gdf = gp.GeoDataFrame(polys_all, columns=['comid', 'pt_count', 'geometry', 'area'])
 gdf.crs = df.crs
 gdf.to_file(filename=out_poly, driver='ESRI Shapefile')
+
 
 
 # some more general notes:
