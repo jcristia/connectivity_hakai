@@ -17,24 +17,38 @@ from math import atan2, degrees
 # User input
 #################
 
-root = r'D:\Hakai\script_runs\seagrass'
+root = r'C:\Users\jcristia\Documents\GIS\MSc_Projects\Hakai\scripts_runs_cluster\seagrass'
+# dirs = [
+#     'seagrass_20200310_SS201101',
+#     'seagrass_20200310_SS201105',
+#     'seagrass_20200310_SS201108',
+#     'seagrass_20200327_SS201401',
+#     'seagrass_20200327_SS201405',
+#     'seagrass_20200327_SS201408',
+#     'seagrass_20200228_SS201701',
+#     'seagrass_20200309_SS201705',
+#     'seagrass_20200309_SS201708',
+#     ]
+
+# reordered by seasons
 dirs = [
-    'seagrass_20200228_SS201701',
-    'seagrass_20200309_SS201705',
-    'seagrass_20200309_SS201708',
     'seagrass_20200310_SS201101',
-    'seagrass_20200310_SS201105',
-    'seagrass_20200310_SS201108',
     'seagrass_20200327_SS201401',
+    'seagrass_20200228_SS201701',
+    'seagrass_20200310_SS201105',
     'seagrass_20200327_SS201405',
+    'seagrass_20200309_SS201705',
+    'seagrass_20200310_SS201108',
     'seagrass_20200327_SS201408',
+    'seagrass_20200309_SS201708',
     ]
+
 shp_conn = r'shp_merged\connectivity_average.shp'
 
 shp_pts = r'shp_merged\patch_centroids.shp'
-out_shp = r'output_figs_SALISHSEA_ALL\communities_ALL.shp'
+out_shp = r'output_figs_SALISHSEA_ALL\TEST\communities_ALL_REORDSEAS.shp'
 
-out_poly = 'output_figs_SALISHSEA_ALL\patch_clusters_convexhull.shp'
+out_poly = r'output_figs_SALISHSEA_ALL\TEST\patch_clusters_convexhull_REORDSEAS.shp'
 
 
 #################
@@ -112,16 +126,36 @@ G_coupling = ig.Graph.Formula("1-->2-->3-->4-->5-->6-->7-->8-->9>") # I need a <
 # I'll simplify:
 # weight between seasons: 0.5
 # weight between years: 0.03
-G_coupling.es['weight'] = [0.5, 0.5, 0.03, 0.5, 0.5, 0.03, 0.5, 0.5]
 
+# testing different weightings:
+G_coupling.es['weight'] = [0.001, 0.001, 0.00001, 0.001, 0.001, 0.00001, 0.001, 0.001]
+# the lower we set the weight, the more we let the difference in slices come out
+# therefore, find the threshold where it starts to change
+# 0.000001 127 clusters
+# 0.00001 99 clusters
+# 0.0001 77 clusters
+# 0.001 77 clusters
+# 0.01 77 clusters
+# 0.1 77 clusters
+# 1 76 clusters
+# 1000 76 clusters
 
-# I tested different interslice weights
-#G_coupling.es['weight'] = [1, 1, 1, 1, 1, 1, 1, 1] # this results in 68 communities, so only 1 less than above. So it isn't very sensitive at this level
-#G_coupling.es['weight'] = [0, 0, 0, 0, 0, 0, 0, 0] # this results in 600+ communities, which makes sense because we are saying that they are not connected at all through time
-#G_coupling.es['weight'] = [0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1] # 69
-#G_coupling.es['weight'] = [1, 1, 0, 1, 1, 0, 1, 1] #181
-#G_coupling.es['weight'] = [0.9, 0.9, 0.001, 0.9, 0.9, 0.001, 0.9, 0.9] #69
-# So it looks like it is pretty stable around 69 comms. It is only unstable at super low numbers. So I might as well use the way I calculated it above with 0.5 and 0.03.
+# testing reordering by season:
+# I think I will avoid setting differences between years. I'm most curious about drawing out differences in seasonal variation. Plus looking across years was more about getting an average between them. I didn't really expect to see something with the blob.
+# but therefore, maybe it makes sense to set things as:
+# w-w-w-sp-sp-sp-su-su-su
+# then use that break point of 0.0001 and 0.00001 to draw out differences between seasons
+# TEST:
+# ordered by time, weighted evenly
+# ordered by time, weighted with break point at years
+# reordered by season and weighted evenly
+# reordered by season with breakpoint between seasons
+
+# I really like the reorderd by seasons and weighted differently between seasons.
+# notice how tsawwassen extends to mayne island, but there is overlap with 2 polygons on either side. This is exactly what i want to indicate.
+# the point sticking out most at the port is in one community 6 times and another 3 times
+# DECISION: reorder by season with breakpoint between seasons. I could say something like:
+# I tested a range of interslice weightings and different arrangements of slices. I am interested in seasonal variation, and repetition across years is just to get more of an average for a season, not to look at yearly variation. Therefore, I arranged slices by season. I used a higher interslice weighting between slices of the same season to smooth out any differences in community structure, then I used a lower weighting between seasons to allow community structure to vary more so as to see if there are changing dynamics between seasons. The general structure is not sensitive to any weights above 0.0001. I tested all way up to 1000 and it stays stable. However, below that weight we start to see differences and a lot more overlap of communities. Therefore, for within seasons, I stayed above this weighting, and between seasons I used a value just below it.
 
 
 G_coupling.vs['slice'] = graphs
@@ -134,13 +168,17 @@ interslice_partition = la.CPMVertexPartition(interslice_layer, resolution_parame
 optimiser = la.Optimiser()
 diff = optimiser.optimise_partition_multiplex(partitions + [interslice_partition], n_iterations=-1)
 
-# I tested with CPM and varying resolution values
-#layers, interslice_layer, G_full = la.slices_to_layers(G_coupling)
-#partitions = [la.CPMVertexPartition(H, weights='weight', node_sizes='node_size', resolution_parameter=0.0001) for H in layers]
-#interslice_partition = la.CPMVertexPartition(interslice_layer, resolution_parameter=0, node_sizes='node_size', weights='weight')
-#optimiser = la.Optimiser()
-#diff = optimiser.optimise_partition_multiplex(partitions + [interslice_partition], n_iterations=-1)
-# I could use CPM to show the subsets that make up each larger cluster. However, it will be hard for me to justify any specific resolution value. It's much easier to justify removing weak connections and then just letting leiden do its default optimisation. I can present it as "when we consider all the nodes together and their strongest connections, this is the default clustering, but yes, we can break this down to look at the subclusters."
+# I was using the above method to begin with. I wanted to use ModularityVertexPartition because I did not know how to set the CPM resolution value, but now after reading Thomas et al 2014, I understand it better. The resolution value let's us control the level of connectivity within a cluster. The default "find_partition" is just finding the resolution value that minimizes the H values (see the paper). So in a way that is the best arrangment of clusters, but it of course doesn't mean anything ecologically, which is why we need to explore a range.
+# Refer to my notes in the paper in mendeley for more detailed comments
+# For the interslice partitioning, we set the resolution to 0 because we don't want to put any limit on it.
+
+layers, interslice_layer, G_full = la.slices_to_layers(G_coupling)
+partitions = [la.CPMVertexPartition(H, weights='weight', node_sizes='node_size', resolution_parameter=0.0001) for H in layers]
+interslice_partition = la.CPMVertexPartition(interslice_layer, resolution_parameter=0, node_sizes='node_size', weights='weight')
+optimiser = la.Optimiser()
+diff = optimiser.optimise_partition_multiplex(partitions + [interslice_partition], n_iterations=-1)
+
+
 
 
 # Partitions:
@@ -163,7 +201,7 @@ df_freq = df_c.groupby(['pid', 'comid']).agg(
     ).reset_index()
 gdf_all = df_pts.merge(df_freq, left_on='uID', right_on='pid', how='outer')
 # if NaN make -1 or else arcgis reads it as 0 and there is already a 0 community
-gdf_all = gdf_all.fillna(-1)
+gdf_all = gdf_all.fillna({'pid':-1, 'comid':-1, 'freq':-1})
 gdf_all.to_file(filename=out_shp, driver='ESRI Shapefile')
 
 
@@ -231,3 +269,4 @@ gdf.to_file(filename=out_poly, driver='ESRI Shapefile')
 
 
 
+print(len(partitions[0]))
