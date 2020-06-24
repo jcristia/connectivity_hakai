@@ -41,3 +41,6 @@ spatial/models
 *.pyc
 
 *.nc
+
+*.code-workspace
+*settings.json
