@@ -1,7 +1,5 @@
 
-
 # temporal community detection
-
 
 import igraph as ig
 import leidenalg as la
@@ -12,44 +10,27 @@ from shapely.geometry import Polygon, Point
 import shapely.affinity
 from math import atan2, degrees
 
-
 #################
 # User input
 #################
 
 root = r'C:\Users\jcristia\Documents\GIS\MSc_Projects\Hakai\scripts_runs_cluster\seagrass'
-# dirs = [
-#     'seagrass_20200310_SS201101',
-#     'seagrass_20200310_SS201105',
-#     'seagrass_20200310_SS201108',
-#     'seagrass_20200327_SS201401',
-#     'seagrass_20200327_SS201405',
-#     'seagrass_20200327_SS201408',
-#     'seagrass_20200228_SS201701',
-#     'seagrass_20200309_SS201705',
-#     'seagrass_20200309_SS201708',
-#     ]
-
-# reordered by seasons
 dirs = [
     'seagrass_20200310_SS201101',
-    'seagrass_20200327_SS201401',
-    'seagrass_20200228_SS201701',
     'seagrass_20200310_SS201105',
-    'seagrass_20200327_SS201405',
-    'seagrass_20200309_SS201705',
     'seagrass_20200310_SS201108',
+    'seagrass_20200327_SS201401',
+    'seagrass_20200327_SS201405',
     'seagrass_20200327_SS201408',
+    'seagrass_20200228_SS201701',
+    'seagrass_20200309_SS201705',
     'seagrass_20200309_SS201708',
     ]
 
 shp_conn = r'shp_merged\connectivity_average.shp'
-
 shp_pts = r'shp_merged\patch_centroids.shp'
 out_shp = r'output_figs_SALISHSEA_ALL\TEST\communities_ALL_REORDSEAS.shp'
-
 out_poly = r'output_figs_SALISHSEA_ALL\TEST\patch_clusters_convexhull_REORDSEAS.shp'
-
 
 #################
 # Setup and format
@@ -60,18 +41,15 @@ out_shp = os.path.join(root, out_shp)
 out_poly = os.path.join(root, out_poly)
 
 graphs = []
-
-# Remove weak links:
-# justification: the smallest prob that the smallest meadow can be is 0.002 (1/84 / 5plds)
-# so round down to 0.001. For the biggest meadow this would be 400 particles. For the mean, this is 5 particles.
 for dir in dirs:
     df = gp.read_file(os.path.join(root, dir, shp_conn))
     df = df.drop(columns=['geometry','time_int','date_start', 'totalori', 'date_start'])
     df = df[df['from_id'] != df['to_id']]
-    df = df[df.prob_avg >= 0.001] # results in 76 clusters, USE THIS LEVEL. IT HAS GOOD JUSTIFICATION
+    # Option to remove weak links: (no longer doing this, now that I understand CPM better)
+    # justification: the smallest prob that the smallest meadow can be is 0.002 (1/84 / 5plds)
+    # so round down to 0.001. For the biggest meadow this would be 400 particles. For the mean, this is 5 particles.
+    #df = df[df.prob_avg >= 0.001] # results in 76 clusters, USE THIS LEVEL. IT HAS GOOD JUSTIFICATION
     # still connects the far one near neah. However, when you look into that meadow, it does indeed have a couple very strong connections to meadows on the edge of the gulf islands. This is SUPER interesting. It is not present in the winter or spring, but present STRONGLY in the summer. It is about 8 particles out of 900 that make it there.
-    # test 0.0001
-    #df = df[df.prob_avg >= 0.0001] # 70 clusters
     tuples = []
     for x in df.values:
         t = tuple([int(x[0]), int(x[1]), x[2]])
@@ -81,32 +59,31 @@ for dir in dirs:
     graphs.append(G)
 
 
-
 #################
 # Community detection EXPLORATION
 #################
 
-membership, improvement = la.find_partition_temporal(graphs, la.ModularityVertexPartition, interslice_weight=0.1)
 # This is the default method. However, you can't apply different interslice weights.
 #membership, improvement = la.find_partition_temporal(graphs, la.ModularityVertexPartition, interslice_weight=0.1)
-
 # membership is the community id of each node. To get the node id print out G.vs['id']
+
 # Understanding multiplex structure:
-# These functions are BUILDING the multiplex network. It has nothing to do with averaging communities.
+# These functions are BUILDING/DETECTING the multiplex network. It has nothing to do with averaging communities.
 # Nodes can change membership in each slice and can therefore take on multiple community IDs. Think of it as overlapping convex hulls as the final product. This would represent overall communities and symbolize how they vary.
 
 # The interslice link is having an effect on this. Compare membership[8] to doing just a single find_partition on the last graph:
 # partition = la.find_partition(G, la.ModularityVertexPartition, weights='weight', seed=11)
 # you can see that they are different memberships
 
-
 # Additional exploration:
-# I was confused how an optimiser was acting on the partition objest because it looked like the returned diff was just a number and partition wasn't changing (in traditional python-sense I would expect partition to be recreated as a new variable if it was going to change). However, you can see that partition does change.
+# I was confused how an optimiser was acting on the partition object because it looked like the returned diff was just a number and partition wasn't changing (in traditional python-sense I would expect partition to be recreated as a new variable if it was going to change). However, you can see that partition does change.
 # Print out partition before and after optimise to see.
 #G = ig.Graph.Famous('Zachary')
 #optimiser = la.Optimiser()
 #partition = la.ModularityVertexPartition(G)
 #diff = optimiser.optimise_partition(partition)
+# if you look at the membership before, it first places each node into its own community, then the optimiser places them into optimal communities. You can also print out the quality before and after and see how it improves.
+# that's why optimisers return the IMPROVEMENT OF QUALITY
 
 
 #################
@@ -114,82 +91,179 @@ membership, improvement = la.find_partition_temporal(graphs, la.ModularityVertex
 #################
 
 # find_partition_temporal is a helper that packages up the optimiser and partition creation and makes the assumption to weight the interslices the same. However, if I want to weight the interslices differently then you need to do these steps manually.
-# I would do this because there are different lengths of time between my slices (months within a year, then 2 years between years). Ones that are closer together in time should be considered more similar.
+# I would do this because there are different lengths of time between my slices and I want to connect between seasons different than within seasons.
 
-G_coupling = ig.Graph.Formula("1-->2-->3-->4-->5-->6-->7-->8-->9>") # I need a <> before or after, which isn't mentioned at all by igraph, but I could not get it to work otherwise.
-# The interslice layer is itself a graph and the individual graphs are nodes. Therefore the weights are similar to my connection weights.
+G_coupling = ig.Graph.Formula("1-->2-->3-->4-->5-->6-->7-->8-->9, 1-->4-->7, 2-->5-->8, 3-->6-->9")
+# The interslice layer is itself a graph and the individual graphs are nodes. The above formula first connects the graphs chronologically, and then the other three pieces connects similar seasons. This is so that I can weigh within season connections higher, which will smooth them out and allow them to vary less, and then weigh between seasons lower so that they can vary more and I can draw out how communities change with season. The lower we set the weight, the more we let the difference in slices come out
+#print(G_coupling) # you can see how it orders the edges here and how you will need to order your weights
 
-# So perhaps I'll break it down by months. If something is in the following month then it would have a connection strength of 0.5. Then I'll decrease it proportionally from there.
-# difference between seasons is 0.5-2.5 months. Use 1.5.
-# difference between years is 2 years and 2.5 months, so 26.5 months
-# so the ratio is ~1:17.6
-# I'll simplify:
-# weight between seasons: 0.5
-# weight between years: 0.03
+# testing different weightings: find the threshold where it starts to change. Test this with ModularityVertexPartition.
+# start with just one weight, then do different levels for within/between seasons
+w = 1 # within
+b = 0.00001 # between
+G_coupling.es['weight'] = [b, w, b, w, b, w, b, w, b, w, b, w, b, b]
+# with just one weight:
+# 0 601 clusters
+# 0.0000000001 91 clusters
+# 0.000000001 93 clusters
+# 0.00000001 96 clusters
+# 0.0000001 91 clusters
+# 0.000001 82 clusters
+# 0.00001 68 clusters
+# 0.0001 61 clusters
+# 0.001 62 clusters
+# 0.01 62 clusters
+# 0.1 62 clusters
+# 1 62 clusters
+# 1000 63 clusters
 
-# testing different weightings:
-G_coupling.es['weight'] = [0.001, 0.001, 0.00001, 0.001, 0.001, 0.00001, 0.001, 0.001]
-# the lower we set the weight, the more we let the difference in slices come out
-# therefore, find the threshold where it starts to change
-# 0.000001 127 clusters
-# 0.00001 99 clusters
-# 0.0001 77 clusters
-# 0.001 77 clusters
-# 0.01 77 clusters
-# 0.1 77 clusters
-# 1 76 clusters
-# 1000 76 clusters
+# lock in 1 for WITHIN seasons, then test the range again
+# 0.000000000000000000000001 167
+# 0.000000000000000000001 171
+# 0.000000000000000001 176
+# 0.000000000000001 77
+# 0.000000000001 76
+# 0.000000001 77
+# 0.00000001 77
+# 0.0000001 75
+# 0.000001 66
+# 0.00001 65
+# 0.0001 61
 
-# testing reordering by season:
-# I think I will avoid setting differences between years. I'm most curious about drawing out differences in seasonal variation. Plus looking across years was more about getting an average between them. I didn't really expect to see something with the blob.
-# but therefore, maybe it makes sense to set things as:
-# w-w-w-sp-sp-sp-su-su-su
-# then use that break point of 0.0001 and 0.00001 to draw out differences between seasons
-# TEST:
-# ordered by time, weighted evenly
-# ordered by time, weighted with break point at years
-# reordered by season and weighted evenly
-# reordered by season with breakpoint between seasons
+# there's not a clear threshold where clusters make a huge jump (except at very low values), but it stabilizes at 77 at very low numbers. I could pick the most extreme values (e.g. 1000000, 0.00000000001) in which case I get 171, but I'm not sure that make sense. I am essentially perfectly connecting within seasons and saying between seasons aren't connected at all. I should therefore choose 2 non-extreme values, but values that still create some difference.
+# within: 1
+# between: 0.00001
 
-# I really like the reorderd by seasons and weighted differently between seasons.
-# notice how tsawwassen extends to mayne island, but there is overlap with 2 polygons on either side. This is exactly what i want to indicate.
-# the point sticking out most at the port is in one community 6 times and another 3 times
-# DECISION: reorder by season with breakpoint between seasons. I could say something like:
+
+# I like this graph structure of distinguishing between/within seasons.
+# notice how tsawwassen extends to mayne island, but there is overlap with 2 polygons on either side. This is exactly what i want to indicate. The point sticking out most at the port is in one community 6 times and another 3 times. These are the patterns I want to draw out. I could somewhat tell these where in the data just by looking at the seasonal variation in connectivity.
+# I could write something like:
 # I tested a range of interslice weightings and different arrangements of slices. I am interested in seasonal variation, and repetition across years is just to get more of an average for a season, not to look at yearly variation. Therefore, I arranged slices by season. I used a higher interslice weighting between slices of the same season to smooth out any differences in community structure, then I used a lower weighting between seasons to allow community structure to vary more so as to see if there are changing dynamics between seasons. The general structure is not sensitive to any weights above 0.0001. I tested all way up to 1000 and it stays stable. However, below that weight we start to see differences and a lot more overlap of communities. Therefore, for within seasons, I stayed above this weighting, and between seasons I used a value just below it.
-
 
 G_coupling.vs['slice'] = graphs
 
-# Then we can use the established manual procedure
+#use MVP for testing so that I am not also varying the CPM resoluton parameter:
+# layers, interslice_layer, G_full = la.slices_to_layers(G_coupling)
+# partitions = [la.ModularityVertexPartition(H, weights='weight') for H in layers]
+# interslice_partition = la.CPMVertexPartition(interslice_layer, resolution_parameter=0, node_sizes='node_size', weights='weight')
+# optimiser = la.Optimiser()
+# diff = optimiser.optimise_partition_multiplex(partitions + [interslice_partition], n_iterations=-1)
+# print(len(partitions[0]))
 
-layers, interslice_layer, G_full = la.slices_to_layers(G_coupling)
-partitions = [la.ModularityVertexPartition(H, weights='weight') for H in layers]
-interslice_partition = la.CPMVertexPartition(interslice_layer, resolution_parameter=0, node_sizes='node_size', weights='weight')
-optimiser = la.Optimiser()
-diff = optimiser.optimise_partition_multiplex(partitions + [interslice_partition], n_iterations=-1)
 
 # I was using the above method to begin with. I wanted to use ModularityVertexPartition because I did not know how to set the CPM resolution value, but now after reading Thomas et al 2014, I understand it better. The resolution value let's us control the level of connectivity within a cluster. The default "find_partition" is just finding the resolution value that minimizes the H values (see the paper). So in a way that is the best arrangment of clusters, but it of course doesn't mean anything ecologically, which is why we need to explore a range.
-# Refer to my notes in the paper in mendeley for more detailed comments
+# Refer to my notes in the paper in mendeley for more detailed comments. Also refer to my email with Vincent Traag:
+# "Modularity assumes a specific null-model, which might not make physical sense for you interpretation. In that work about marine ecology we also used CPM. You may want to read that section for some arguments why to use CPM instead of modularity. But you are absolutely right, the difficult choice is the resolution parameter. In practice, it is typically a matter of trying out various values and try to see which types of partitions seem to make most sense in your particular application (and be clear about how you got to that conclusion and particular resolution value)."
 # For the interslice partitioning, we set the resolution to 0 because we don't want to put any limit on it.
 
 layers, interslice_layer, G_full = la.slices_to_layers(G_coupling)
-partitions = [la.CPMVertexPartition(H, weights='weight', node_sizes='node_size', resolution_parameter=0.0001) for H in layers]
+partitions = [la.CPMVertexPartition(H, weights='weight', node_sizes='node_size', resolution_parameter=0.4) for H in layers]
 interslice_partition = la.CPMVertexPartition(interslice_layer, resolution_parameter=0, node_sizes='node_size', weights='weight')
 optimiser = la.Optimiser()
-diff = optimiser.optimise_partition_multiplex(partitions + [interslice_partition], n_iterations=-1)
+optimiser.set_rng_seed(1)
+diff = optimiser.optimise_partition_multiplex(partitions + [interslice_partition], n_iterations=2)
+print(partitions[0].summary())
+print(diff)
+#print(partitions[0].quality())
+# NOTE: for optimise_partition_multiplex, the returned improvement quality is the SUM of the individual qualities of all the partitions.
+# I'm not sure the quality really means anything in the context of CPM though.
+
+# test a range of values so that I know the range to do a more detailed test within. I am doing the same analysis as Thomas et al 2014 figure 5.
+# 0.9 950 clusters
+# 0.6 950
+# 0.5 950
+# 0.4 950
+# 0.3 948
+# 0.2 942
+# 0.1 903
+# 0.01 599
+# 0.001 320
+# 0.0001 162
+# 0.00001 90
+# 0.000001 47
+# 0.0000001 33
+# 0.00000001 22
+# 0.000000001 12
+# 0.0000000001 12
+# 0 12
+# greater than 0.000000001 results in a change in the number of clusters. This would make sense since that is probably my smallest edge weight
+# at 0.4 and above I get 950 clusters. This is because there are so few (or zero) connections that are of this weight. I will still get more clusters than nodes though because through time connectivity may still be different enough.
+
+
+# THIS IS SUPER SLOW. I need to move some things out of the loop
+# Use this loop for plotting intercommunity connectivity vs. the CPM resolution parameter. I can then select values from this to run individually.
+# test from 10e-10 to 10e0, within each of those, test 1 to 9
+res_conn = []
+for i in range(-10,1):
+    for j in range(1,10):
+        res=10.0**i * j
+        layers, interslice_layer, G_full = la.slices_to_layers(G_coupling)
+        partitions = [la.CPMVertexPartition(H, weights='weight', node_sizes='node_size', resolution_parameter=res) for H in layers]
+        interslice_partition = la.CPMVertexPartition(interslice_layer, resolution_parameter=0, node_sizes='node_size', weights='weight')
+        optimiser = la.Optimiser()
+        optimiser.set_rng_seed(1)
+        diff = optimiser.optimise_partition_multiplex(partitions + [interslice_partition], n_iterations=2)
+
+        # get inter community connectivity average
+
+        df_c = pd.DataFrame(columns=['pid','comid'])
+        for p in range(len(partitions[0])): # partitions are all the same at this point, so just need the first one
+            if len(partitions[0].subgraph(p).vs['name'])>1:
+                for v in partitions[0].subgraph(p).vs['name']:
+                    df_c = df_c.append({'pid':v, 'comid': p}, ignore_index=True)
+        # frequency
+        df_freq = df_c.groupby(['pid', 'comid']).agg(
+            freq = ('pid', 'count'),
+            ).reset_index()
+        gdf_all = df_pts.merge(df_freq, left_on='uID', right_on='pid', how='outer')
+        # if NaN make -1 or else arcgis reads it as 0 and there is already a 0 community
+        gdf_all = gdf_all.fillna({'pid':-1, 'comid':-1, 'freq':-1})
+
+        # to get inter community connectivity for each resolution value:
+        # in gdf_all, for each unique comid, get the uIDs for the community.
+        # then go through all of my connection files in all of my directories
+        # get the connections to and from those nodes, but not between those nodes
+        # get the total of those connections
+        # then get the total of ALL connections and find the % that is just the intercommunity connectivity
+        # from Vincent: "what fraction of the total weight in the graph is on edges between communities. This goes from 0% (single large cluster) to 100% (the singleton partition, if there were no loops)."
+        conns_com_inter = pd.DataFrame(columns=['from_id','to_id', 'prob_avg'])
+        conns_com_all = pd.DataFrame(columns=['from_id','to_id', 'prob_avg'])
+        for com in gdf_all.comid.unique():
+            if com != -1.0:
+                gdf_com = gdf_all.uID[gdf_all.comid==com].to_list()
+                for dir in dirs:
+                    df = gp.read_file(os.path.join(root, dir, shp_conn))
+                    df = df.drop(columns=['geometry','time_int','date_start', 'totalori', 'date_start'])
+                    df = df[df['from_id'] != df['to_id']]
+                    conns_com_all = conns_com_all.append(df)   #hmmmmmm, so this would be happening a ton of times. Wouldn't I want it to happen just 9 times for all of the overall for loop??? Move it to it's own for loop.
+                    df_inter = df[(df.from_id.isin(gdf_com)) | (df.to_id.isin(gdf_com))]
+                    # remove intraconnectivity
+                    df_remove = df_inter[(df_inter.from_id.isin(gdf_com)) & (df_inter.to_id.isin(gdf_com))]
+                    df_inter = pd.concat([df_inter, df_remove]).drop_duplicates(keep=False)
+                    conns_com_inter = conns_com_inter.append(df_inter)
+        total_conninter = conns_com_inter.prob_avg.sum()
+        total_conn = conns_com_all.prob_avg.sum()
+        percent_inter = (total_conninter / total_conn) * 100
+        print(percent_inter)
+
+        res_conn.append([res, percent_inter])
 
 
 
 
-# Partitions:
+# TODO: create plot, select levels, run those levels individually, create maps
+
+
+
+
+
+# Partitions explanation:
 # each subgraph gives me all the node ids in a cluster, some nodes are repeated, which would be from different time steps
 # its currently a bit confusing relating the structure of "membership" from find_partition_temporal to the structure of partitions[0] from optimise_partition_multiplex. They both are of length 9, but I think membership shows the clusters at each timestep, whereas partitions are all the same because it is taking a "cross" of membership, but within each subgraph of partitions, things can be repeated and occur in different graphs. It get's evened out in a way, hence the optimiser.
 
 # output a dataset with attributes: node_id (uID), community, frequency
 # frequency will just be the count of each node in a community.
 # This will result in a point feature class where uID is no longer unique.
-
-
 df_c = pd.DataFrame(columns=['pid','comid'])
 for p in range(len(partitions[0])): # partitions are all the same at this point, so just need the first one
     if len(partitions[0].subgraph(p).vs['name'])>1:
@@ -205,12 +279,11 @@ gdf_all = gdf_all.fillna({'pid':-1, 'comid':-1, 'freq':-1})
 gdf_all.to_file(filename=out_shp, driver='ESRI Shapefile')
 
 
-# create convex polys
+# create convex polys of communities
 input = out_shp
 df = gp.read_file(input)
 # drop rows that are -1
 df = df[df.comid != -1]
-# create convex hull polys
 clusters = df.groupby('comid')
 polys_all = []
 for name, cluster in clusters:
@@ -227,7 +300,6 @@ for name, cluster in clusters:
         mid_y = (point1.y + point2.y)/2        
         dist = point1.distance(point2)
         angle = degrees(atan2(point2.y - point1.y, point2.x - point1.x))
-
         # create ellipse
         # 1st elem = center point (x,y) coordinates
         # 2nd elem = the two semi-axis values (along x, along y)
@@ -245,7 +317,6 @@ for name, cluster in clusters:
         # According to the man, a positive value means a anti-clockwise angle,
         # and a negative one a clockwise angle.
         polys_all.append([name, point_count, ellr, ellr.area])
-
 
 gdf = gp.GeoDataFrame(polys_all, columns=['comid', 'pt_count', 'geometry', 'area'])
 gdf.crs = df.crs
@@ -265,8 +336,3 @@ gdf.to_file(filename=out_poly, driver='ESRI Shapefile')
 # Quality:
 #  la.ModularityVertexPartition.quality() is normalised with the number of links (or total weight), while la.RBConfigurationVertexPartition.quality() is unnormalised. This is a completely trivial difference of course, but some people were confused why some quality functions did not correspond exactly to the quality functions as defined in the literature.
 
-
-
-
-
-print(len(partitions[0]))
