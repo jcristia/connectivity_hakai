@@ -1,6 +1,9 @@
-# Build off single scenario analysis and look at differences in connectivity through time
 
-# This script also outputs an average of averages for connections and an average for dPC for nodes
+# Outputs an average of averages for connections and an average for dPC for nodes
+
+# Also, builds a off single scenario analysis and look at differences in connectivity through time
+
+
 
 
 import os

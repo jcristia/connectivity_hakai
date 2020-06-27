@@ -1,3 +1,5 @@
+# ARCHIVED - community_detection_temporal is now the main analysis
+
 # community detection using leidenalg (Leiden algorithm), which is an improved version of louvain
 # after running this, you need to run the community_detection_join.py script
 

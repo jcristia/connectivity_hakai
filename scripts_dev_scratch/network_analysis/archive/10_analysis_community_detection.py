@@ -1,3 +1,5 @@
+# ARCHIVED - Not a super useful analysis right now
+
 # for one community average simulation:
 # distribution of cluster area size
 # distribution of # nodes per cluster
