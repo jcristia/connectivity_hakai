@@ -5,6 +5,7 @@
 !scripts_runs_localstage/
 !scripts_tools/
 !spatial/
+!Workflow_folderstructure_README.pptx
 
 # then exclude specific folder and file types
 output
