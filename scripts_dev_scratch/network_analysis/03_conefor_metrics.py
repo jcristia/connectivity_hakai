@@ -23,8 +23,17 @@ connections_file = r'conns_conefor.txt'
 out_shp = r'conefor_metrics.shp'
 
 # DECISION: my default is to log transform and normalize, so keep these values set as True
+# Refer to "CONEFOR metrics and log transforming areas" note in Evernote for justification
+# Main points:
+# spans 8 orders of magnitude.
+# dispersal probs span 5 orders of magnitude.
+# Area and intraconnectivity is not my main focus.
+# Also PC is based on the habitat availability concept. This is assuming that if everything is connected then you only need to focus on area. However, some of my dispersal probabilities are so low, that even though I'm showing that everything is connected, there is a lot of uncertainty, so I don't want to just say I should conserve the biggest patches because everything is connected. Also, some of my biggest patches don't have a lot of connections going in and out.
+# Also log transform because we are thinking of multigenerational movement and not an animal that can choose to stay in a nice patch.
+# Also these animals have a PD phase and movement is necessary.
 normalize = True
 log_transform = True # only set true if normalize also true
+# NOTE: once I join the resulting node importances back to the node shapefile, the transformed numbers don't carry forward, so it's hard to remember that I did this.
 
 #######################
 # set up file paths, create folder
