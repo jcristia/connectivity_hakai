@@ -13,6 +13,7 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 import numpy as np
 from math import log10, floor, sqrt
+import statsmodels
 
 
 
@@ -32,7 +33,7 @@ dirs = [
     'seagrass_20200327_SS201408',
     ]
 
-root = r'D:\Hakai\script_runs\seagrass'
+root = r'C:\Users\jcristia\Documents\GIS\MSc_Projects\Hakai\scripts_runs_cluster\seagrass'
 shp_merged = 'shp_merged'
 conn_avg = 'connectivity_average.shp'
 conn_ind = 'connectivity_pld{}.shp'
@@ -45,6 +46,7 @@ output_ind = 'output_figs'
 output_all = os.path.join(root, 'output_figs_SALISHSEA_ALL')
 overall_indices = r'conefor\conefor_connectivity_{}\overall_indices.txt'
 max_area = 620.023012 # total area (after log transform and scale)
+grand_average = r'output_figs_SALISHSEA_ALL\connectivity_average_ALL.shp'
 
 
 # create directories and paths
@@ -335,3 +337,28 @@ sns.pointplot(x='pld', y='PCintra(%)', data=df_indices)
 plt.show()
 fig.savefig(os.path.join(output_all, 'pld_pcintra.svg'))
 
+
+# connectivity strength vs. connection distance
+# averaged within a PLD level and compared to the grand average
+gdf_all = pd.DataFrame()
+for pld in plds:
+    for dir in dirs:
+        conns = os.path.join(root, dir, shp_merged, conn_ind.format(pld))
+        conns = gp.read_file(conns)
+        conns['pld'] = pld
+        gdf_all = gdf_all.append(conns)
+gdf_connavg = gp.read_file(os.path.join(root, grand_average))
+gdf_connavg['pld'] = 'conn_all_avg'
+gdf_connavg = gdf_connavg.rename(columns={'probavgm':'prob'})
+gdf_all = gdf_all.append(gdf_connavg)
+gdf_all = gdf_all[gdf_all.from_id != gdf_all.to_id]
+gdf_all['length'] = gdf_all.geometry.length
+gdf_all['prob'] = np.log10(gdf_all.prob)
+
+sns.set()
+sns.set_style('white')
+sns.set_context('notebook')
+
+slm = sns.lmplot(x='length', y='prob', data=gdf_all, hue='pld', scatter=True, hue_order=['60', '21', '07', '03', '01', 'conn_all_avg'], logx=True, ci=95, scatter_kws={"s": 1, 'alpha':0.3})
+slm.set(xlabel='connectivity distance metres', ylabel='log10(connectivity probability)')
+slm.savefig(r'C:\Users\jcristia\Documents\GIS\MSc_Projects\Hakai\publications_figures\chap1\connavgpld_conndist.png')
