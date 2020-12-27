@@ -49,8 +49,8 @@ class Reader(BaseReader):
             #'mask_psi': 'land_binary_mask',
             #'h': 'sea_floor_depth_below_sea_level',
             #'zeta': 'sea_surface_height',
-            'uo': 'x_sea_water_velocity',  # JC: comment out other variables that are ROMS specific. Keep only u/v that I am interested in
-            'vo': 'y_sea_water_velocity',
+            'uos': 'x_sea_water_velocity',  # JC: comment out other variables that are ROMS specific. Keep only u/v that I am interested in
+            'vos': 'y_sea_water_velocity',
             #'w': 'upward_sea_water_velocity',
             #'temp': 'sea_water_temperature',
             #'salt': 'sea_water_salinity',

@@ -3,14 +3,14 @@
 import netCDF4 as nc
 
 #filename = r'C:\Users\jcristia\Documents\GIS\MSc_Projects\Hakai\spatial\fvcom_results\sample_20180928_edited\calvert03_12hours_tides_winds.nc'
-filename = r'D:\Hakai\fvcom_results\cal03brcl_21_0003_EDITED.nc'
+filename = r"C:\Users\jcristia\Documents\GIS\MSc_Projects\Hakai\spatial\models\nep_nemo\mesh_mask.nc"
 dataset = nc.Dataset(filename, "r+")
 
-print dataset.data_model
+print(dataset.data_model)
 
 variables = dataset.variables.keys()
 for variable in variables:
-    print variable
+    print(variable)
 
 for dim in dataset.dimensions.values():
     print(dim)
@@ -66,3 +66,11 @@ x = np.asarray(x)
 deltax = 24674.199577145948
 
 h = int((x.max()-x.min())/deltax)
+
+# if every needing to convert seconds since 1950
+https://forum.marine.copernicus.eu/discussion/274/how-to-convert-netcdf-time-to-python-datetime-resolved/p1
+# # example of using num2date
+# datetime.datetime.fromtimestamp(time[0])  # datetime doesn't work here. Need to use something that recognizes the origin
+# datevar = []
+# t_unit = dataset.variables['time_counter'].units
+# datevar.append(nc.num2date(time, units=t_unit, calendar='gregorian'))
