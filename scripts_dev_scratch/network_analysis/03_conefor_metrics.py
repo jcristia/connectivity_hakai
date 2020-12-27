@@ -31,6 +31,7 @@ out_shp = r'conefor_metrics.shp'
 # Also PC is based on the habitat availability concept. This is assuming that if everything is connected then you only need to focus on area. However, some of my dispersal probabilities are so low, that even though I'm showing that everything is connected, there is a lot of uncertainty, so I don't want to just say I should conserve the biggest patches because everything is connected. Also, some of my biggest patches don't have a lot of connections going in and out.
 # Also log transform because we are thinking of multigenerational movement and not an animal that can choose to stay in a nice patch.
 # Also these animals have a PD phase and movement is necessary.
+# We are dealing with tiny tiny invertebrates, not something large like elk. A small patch is still adequate habitat, and bigger size is probably only better up to a certain point.
 normalize = True
 log_transform = True # only set true if normalize also true
 # NOTE: once I join the resulting node importances back to the node shapefile, the transformed numbers don't carry forward, so it's hard to remember that I did this.
