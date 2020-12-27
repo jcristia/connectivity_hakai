@@ -33,8 +33,8 @@ dirs = [
 
 shp_conn = r'shp_merged\connectivity_average.shp'
 shp_pts = r'shp_merged\patch_centroids.shp'
-out_shp = r'output_figs_SALISHSEA_ALL\Communities\{}_communities.shp'
-out_poly = r'output_figs_SALISHSEA_ALL\Communities\{}_patch_clusters_convexhull.shp'
+# out_shp = r'output_figs_SALISHSEA_ALL\Communities\{}_communities.shp'
+# out_poly = r'output_figs_SALISHSEA_ALL\Communities\{}_patch_clusters_convexhull.shp'
 
 #################
 # Setup and format
@@ -273,6 +273,137 @@ G_coupling.vs['slice'] = graphs
 
 
 #################
+# RUN THIS AGAIN WITH A CUSTOM LIST
+#################
+# I want to fill in some gaps where there are big jumps on a log scale
+# It all takes forever to run, and for the sake of preserving code and thought process, I'm just copying the above code down here.
+
+# first get total connectivity
+conns_com_all = pd.DataFrame(columns=['from_id','to_id', 'prob_avg'])
+for dir in dirs:
+    df = gp.read_file(os.path.join(root, dir, shp_conn))
+    df = df.drop(columns=['geometry','time_int','date_start', 'totalori', 'date_start'])
+    df = df[df['from_id'] != df['to_id']]
+    conns_com_all = conns_com_all.append(df)
+total_conn = conns_com_all.prob_avg.sum()
+
+
+vals = [
+    0.000001025,
+    0.00000105,
+    0.000001075,
+    0.00001025,
+    0.0000105,
+    0.00001075,
+    0.0001025,
+    0.000105,
+    0.0001075,
+    0.001025,
+    0.00105,
+    0.001075
+]
+
+vals2 = [
+    0.000001125,
+    0.00000115,
+    0.000001175,
+    0.00001125,
+    0.0000115,
+    0.00001175,
+    0.0001125,
+    0.000115,
+    0.0001175,
+    0.001125,
+    0.00115,
+    0.001175
+]
+
+
+res_conn = []
+for i in vals2:
+    print('Processing ' + str(i))
+    res=i
+    layers, interslice_layer, G_full = la.slices_to_layers(G_coupling)
+    partitions = [la.CPMVertexPartition(H, weights='weight', node_sizes='node_size', resolution_parameter=res) for H in layers]
+    interslice_partition = la.CPMVertexPartition(interslice_layer, resolution_parameter=0, node_sizes='node_size', weights='weight')
+    optimiser = la.Optimiser()
+    optimiser.set_rng_seed(1)
+    diff = optimiser.optimise_partition_multiplex(partitions + [interslice_partition], n_iterations=2)
+
+    # get inter community connectivity average
+
+    df_c = pd.DataFrame(columns=['pid','comid'])
+    for p in range(len(partitions[0])): # partitions are all the same at this point, so just need the first one
+        if len(partitions[0].subgraph(p).vs['name'])>1:
+            for v in partitions[0].subgraph(p).vs['name']:
+                df_c = df_c.append({'pid':v, 'comid': p}, ignore_index=True)
+    # frequency
+    df_freq = df_c.groupby(['pid', 'comid']).agg(
+        freq = ('pid', 'count'),
+        ).reset_index()
+    gdf_all = df_pts.merge(df_freq, left_on='uID', right_on='pid', how='outer')
+    # if NaN make -1 or else arcgis reads it as 0 and there is already a 0 community
+    gdf_all = gdf_all.fillna({'pid':-1, 'comid':-1, 'freq':-1})
+
+    # to get inter community connectivity for each resolution value:
+    # in gdf_all, for each unique comid, get the uIDs for the community.
+    # then go through all of my connection files in all of my directories
+    # get the connections to and from those nodes, but not between those nodes
+    # get the total of those connections
+    # then get the total of ALL connections and find the % that is just the intercommunity connectivity
+    # from Vincent: "what fraction of the total weight in the graph is on edges between communities. This goes from 0% (single large cluster) to 100% (the singleton partition, if there were no loops)."
+    conns_com_inter = pd.DataFrame(columns=['from_id','to_id', 'prob_avg'])
+    for com in gdf_all.comid.unique():
+        if com != -1.0:
+            gdf_com = gdf_all.uID[gdf_all.comid==com].to_list()
+            for dir in dirs:
+                df = gp.read_file(os.path.join(root, dir, shp_conn))
+                df = df.drop(columns=['geometry','time_int','date_start', 'totalori', 'date_start'])
+                df = df[df['from_id'] != df['to_id']]
+                df_inter = df[(df.from_id.isin(gdf_com)) | (df.to_id.isin(gdf_com))]
+                # remove intraconnectivity
+                df_remove = df_inter[(df_inter.from_id.isin(gdf_com)) & (df_inter.to_id.isin(gdf_com))]
+                df_inter = pd.concat([df_inter, df_remove]).drop_duplicates(keep=False)
+                conns_com_inter = conns_com_inter.append(df_inter).drop_duplicates()
+                # I initially didn't have drop_duplicates, which resulted in interconnections being added multiple times. Even if a connection is directional, it would get added each time each of the two nodes is considered.
+    total_conninter = conns_com_inter.prob_avg.sum()
+    percent_inter = (total_conninter / total_conn) * 100
+    print(percent_inter)
+
+    res_conn.append([res, percent_inter])
+
+# output values to csv so that I don't need to run the above again
+df_resconn = pd.DataFrame(res_conn, columns =['Resolution', 'InterConn_percent']) 
+df_resconn.to_csv('interconnectivity_20201107_2.csv', index=False)
+
+# create plot
+df_resconn1 = pd.read_csv('interconnectivity.csv')
+df_resconn2 = pd.read_csv('interconnectivity_20201107.csv')
+df_resconn3 = pd.read_csv('interconnectivity_20201107_2.csv')
+df_resconn = pd.concat([df_resconn1, df_resconn2, df_resconn3])
+sns.set_context('paper', font_scale=2)
+fig, ax = plt.subplots(figsize=(18, 12))
+# need to set limits otherwise it is hard to see the plateaus
+ax.set(xscale='log', xlim=(10**-7, 10**-2.5), ylim=(0,20))
+sline = sns.lineplot(x="Resolution", y="InterConn_percent", data=df_resconn, ax=ax)
+sline.set(xlabel='Within community connectivity threshold', ylabel='Between community connectivity (% of total connectivity)')
+x_coords = [0.0000007, 0.000008, 0.00009, 0.0009]
+y_coords = [0.75, 2, 4.9, 13]
+plt.scatter(x_coords, y_coords, marker='^', color='k', s=100)
+fig
+fig.savefig('resconn_20201108.png')
+
+
+#################
+# Calculate conn_strength:distance ratio for selected plateaus
+#################
+# for distance, I will just use the straight line connection distance since I don't know the actual path of travel. This of course will oversimplify the distance for some connections, I think it will average things out ok.
+
+
+
+
+
+#################
 # SELECT LEVELS FROM ABOVE, DETECT COMMUNITIES AND CREATE SHAPEFILES
 #################
 # from interconnectivity.csv and the plot, I color coded the values that seem to cluster and/or plateau. I will now run 1 'average' value from each of these and create shapefiles from them.
@@ -369,3 +500,12 @@ for i in range(-9,1):
 # Quality:
 #  la.ModularityVertexPartition.quality() is normalised with the number of links (or total weight), while la.RBConfigurationVertexPartition.quality() is unnormalised. This is a completely trivial difference of course, but some people were confused why some quality functions did not correspond exactly to the quality functions as defined in the literature.
 
+# Notes on the resolution parameters I selected to make figures out of:
+# Selection of levels:
+# •	low end: 3 (0.001) and intercomm is 12% . Even though going to 4 might look a little more interesting, this is way more clean and the level is more justifiable (1/1000 particles)
+# •	intermmediate: 5 and intercomm is 1.5%. I should consider adding this level. It shows tsawwasseen and mayne island being connected. It is less intuitive and therefore more interesting then the next level which seems more obvious.
+# Choosing these levels because:
+# •	between 6 and 5: 6 gives us obivious breaks by structure - puget sound and straight of georgia. 5 are still large areas but are less intuitive
+# •	2-3-4: 2 are very small and are all just adjecent meadows with no connections spanning something like a channel - so this is obvious. 4 maintains a lot of the same extent as 5, with smaller nested communities in some of the same size communities as 5 - so this isn't showing us a lot of difference. 3 breaks things down into distinct smaller communities.
+# •	so to generally justify this: you can set the resolution low enough so that it is almost one big community. Need to find a level that can tell you something that is not obvious from the topography. As expected, there is a level where strait of georgia and puget sound are separated. The structure just below this level is not as intuitive. This is the 0.00001 level. For the higher level, we want smaller communities, but ones that are also not as obvious (e.g. 2-3 adjacent meadows). This level seems to exist at 0.001 (1/1000).
+# Together, these two configurations give ecologically relevant clustering information.
