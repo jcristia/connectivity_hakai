@@ -45,3 +45,6 @@ spatial/models
 
 *.code-workspace
 *settings.json
+
+scripts_dev_scratch/distance_analysis/distance_analysis_mapping
+scripts_dev_scratch/distance_analysis/info
