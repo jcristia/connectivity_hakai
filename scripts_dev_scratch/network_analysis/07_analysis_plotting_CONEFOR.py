@@ -380,3 +380,68 @@ plt.plot(x_ord, y_pred_ord, color='m')
 plt.scatter(x, y,  s=20, alpha=0.8)
 plt.xlabel("X")
 plt.ylabel("Y")
+
+
+
+
+
+
+
+
+###############################################
+# ECA vs. averaged PLD
+# updated 20201109
+
+dirs = [
+    'seagrass_20200228_SS201701',
+    'seagrass_20200309_SS201705',
+    'seagrass_20200309_SS201708',
+    'seagrass_20200310_SS201101',
+    'seagrass_20200310_SS201105',
+    'seagrass_20200310_SS201108',
+    'seagrass_20200327_SS201401',
+    'seagrass_20200327_SS201405',
+    'seagrass_20200327_SS201408',
+    ]
+
+root = r'C:\Users\jcristia\Documents\GIS\MSc_Projects\Hakai\scripts_runs_cluster\seagrass'
+plds = ['01', '03', '07', '21', '60']
+overall_indices = r'conefor\conefor_connectivity_pld{}\overall_indices.txt'
+
+df_indices = pd.DataFrame()
+for pld in plds:
+    for dir in dirs:
+        indices = os.path.join(root, dir, overall_indices.format(pld))
+        df_ind = pd.read_csv(indices, sep='\t', names=['conefor_index', 'value'])
+        df_ind['pld'] = int(pld)
+        df_ind = df_ind.pivot(index='pld', columns='conefor_index', values='value').reset_index()
+        df_ind['datepld'] = dir[20:] + pld
+        df_indices = df_indices.append(df_ind)
+
+################## THIS IS THE ONE
+df_indlog = df_indices
+df_indlog['pldlog'] = np.log(df_indices.pld) # log pld
+df_indlog['season'] = df_indlog.datepld.str[4:6].astype(int) # color by season
+df_indlog['season'] = df_indlog.season.replace([1,5,8],['winter', 'spring', 'summer'])
+#df_indlog['ECinterconn'] = df_indlog['EC(PC)'] - 20.11
+sns.set()
+sns.set_style('white')
+sns.set_context('paper')
+colors = ['#377eb8', '#4daf4a', '#ff7f00']
+sns.set_palette(colors)
+# I'm not going to present this as a regression. Instead I will just present the points, then draw a line connecting the means.
+# would make more sense to use scatterplot than lmplot, but scatterplot doesn't have jitter
+#sns.scatterplot(x='pldlog', y='PCnum', data=df_indlog, hue='season', legend="full", x_jitter=0.01)
+f = sns.lmplot(x="pldlog", y="EC(PC)", data=df_indlog, fit_reg=False, hue='season', x_jitter=0.02, legend='full')
+f._legend.remove()
+sns.lineplot(x='pldlog', y='EC(PC)', data=df_indlog, ci=95, err_style='band', color='grey')
+# band is a 95% confidence interval for the means
+f.set(xlabel='ln PLD', ylabel='Equivalent connected habitat (units$^2$)')
+sns.despine(top=False, right=False)
+f.savefig(r'C:\Users\jcristia\Documents\GIS\MSc_Projects\Hakai\publications_figures\chap1\fig04_ECAnumLOG.svg')
+# to maybe do in the future:
+# draw the lineplot behind the points. However, lmplot doesn't use 'ax', so I can't figure out how to do this.
+# instead of transforming the data, just plot on a custom ln axis
+# https://matplotlib.org/3.1.0/api/_as_gen/matplotlib.axes.Axes.set_xscale.html#matplotlib.axes.Axes.set_xscale
+# https://stackoverflow.com/questions/43463431/custom-logarithmic-axis-scaling-in-matplotlib
+########################
