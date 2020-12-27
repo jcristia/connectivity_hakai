@@ -1,3 +1,4 @@
+#
 # plot connection strength vs. distance (with distance being calculated in ArcGIS in a different script)
 # plot distribution of distances where no connection was made
 # environment: community_detection (I'm getting lazy)
