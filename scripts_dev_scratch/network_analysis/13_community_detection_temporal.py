@@ -33,8 +33,11 @@ dirs = [
 
 shp_conn = r'shp_merged\connectivity_average.shp'
 shp_pts = r'shp_merged\patch_centroids.shp'
-# out_shp = r'output_figs_SALISHSEA_ALL\Communities\{}_communities.shp'
-# out_poly = r'output_figs_SALISHSEA_ALL\Communities\{}_patch_clusters_convexhull.shp'
+out_shp = r'output_figs_SALISHSEA_ALL\Communities\{}_communities.shp'
+out_poly = r'output_figs_SALISHSEA_ALL\Communities\{}_convexhull.shp'
+
+# overwater distance
+ow_dist = r'C:\Users\jcristia\Documents\GIS\MSc_Projects\Hakai\scripts_dev_scratch\distance_analysis\distance_analysis_mapping\euc_lines_ALL.csv'
 
 #################
 # Setup and format
@@ -394,25 +397,40 @@ fig
 fig.savefig('resconn_20201108.png')
 
 
+
 #################
 # Calculate conn_strength:distance ratio for selected plateaus
 #################
-# for distance, I will just use the straight line connection distance since I don't know the actual path of travel. This of course will oversimplify the distance for some connections, I think it will average things out ok.
 
-
-
-
-
-#################
-# SELECT LEVELS FROM ABOVE, DETECT COMMUNITIES AND CREATE SHAPEFILES
-#################
-# from interconnectivity.csv and the plot, I color coded the values that seem to cluster and/or plateau. I will now run 1 'average' value from each of these and create shapefiles from them.
 # The logic behind looking for a plateau:
 # We are looking for dispersal barriers. If we don't see any change to interconnectivity with DECREASING intraconn strength required then this is really interesting and indicates that even though things are more strongly connected within a cluster, it still is not enough to overcome a barrier and let more nodes in. Eventually, we raise it enough to "break though" a barrier and increase the interconnectivity in the system.
-# Decision: from that it looks like I can just do 10**(-9 to 0)
-for i in range(-9,1):
-    res=10.0**i
-    print(res)
+
+# for understanding the WHY and HOW of then looking at conn_strength:distance, refer to TCD_connectivity.xlsx
+# essentially:
+# We're just asking "what is the average length of a connection in that cluster"? (don’t' think about strength).
+# However, if a connection is very weak (don't think about length now), then we don't want it to contribute to much to the average because it is an unlikely scenario.
+# So in a way, don't think about "strength" per se. Just see it as a weighting for how much it should be contributing.
+# If two clusters have very different length connections, then that is interesting. ITS THAT SIMPLE. If they have different average length connections then there are distinct physical hydrodynamic or topographical differences between those cluster.
+# We already know that they have a minimum resolution value in common, so then it is taking a look at the physical distances covered within the clusters. What kind of distances do they meet that minimum resolution value with?
+# So just as an example (I don't know yet). The puget sound cluster likely has shorter connections than the cluster for georgia strait. That's a distinct difference. However, once we break these
+# down further and the connections start to become the same length that is simply to be expected because that is typical distance that can be achieved for that level of strength (resolution value).
+# Another example:
+# In an area with lots of islands, most connections are 1km with a strength of 0.001. However, in more coastal open areas that can quickly flow up along the coast, there can be connectios of 5km that achieve the same connection strength.
+# But don't make the mistake that a larger overall area of a cluster equals longer connections. It could just be that there are still short connections that are all connected like a tree.
+# AND THIS is what is "ecologically" interesting. At very small resolution values, we just get 1 large cluster. At very large resolution values, we likely get connections so short that they will be very similar in length across the whole seascape since nothing is restricting movement at that scale.
+# So it will still come down to your question you make from this work - it might be relevant to someone to know where strongly interacting meadows are for a specific area. But if are taking a seascape and regional perspective, we want to link differences in dispersal pattnerns to distinct
+# hydrodynamic and topographical landscape attributes.
+# This can further help us understand how diversity patterns can vary across a landscape.
+
+
+# resolution values where there is a plateau
+res_plateau = [0.000001, 0.000007, 0.0001, 0.0008]
+
+# find partitions for each resolution value
+conns_com_intra_ALL = pd.DataFrame(columns=['res', 'comid', 'from_id','to_id', 'prob_avg'])
+for i in res_plateau:
+    print('Processing ' + str(i))
+    res=i
     layers, interslice_layer, G_full = la.slices_to_layers(G_coupling)
     partitions = [la.CPMVertexPartition(H, weights='weight', node_sizes='node_size', resolution_parameter=res) for H in layers]
     interslice_partition = la.CPMVertexPartition(interslice_layer, resolution_parameter=0, node_sizes='node_size', weights='weight')
@@ -420,6 +438,75 @@ for i in range(-9,1):
     optimiser.set_rng_seed(1)
     diff = optimiser.optimise_partition_multiplex(partitions + [interslice_partition], n_iterations=2)
 
+    # for each community, get the node uID and commmunity ID
+    df_c = pd.DataFrame(columns=['pid','comid'])
+    for p in range(len(partitions[0])): # partitions are all the same at this point, so just need the first one. This is kind of confusing. Refer to my "Partitions explanation" further below. You can also do print(partitions[0]) to see. Nodes can be repeated in a subgraph because it is their membership in each time step.
+        if len(partitions[0].subgraph(p).vs['name'])>1:
+            for v in partitions[0].subgraph(p).vs['name']:
+                df_c = df_c.append({'pid':v, 'comid': p}, ignore_index=True)
+    # frequency (since nodes can be repeated in a subgraph)
+    df_freq = df_c.groupby(['pid', 'comid']).agg(
+        freq = ('pid', 'count'),
+        ).reset_index()
+    gdf_all = df_pts.merge(df_freq, left_on='uID', right_on='pid', how='outer')
+    # if NaN make -1 or else arcgis reads it as 0 and there is already a 0 community
+    gdf_all = gdf_all.fillna({'pid':-1, 'comid':-1, 'freq':-1})
+
+    # for each community get the INTRAcommunity connections
+    conns_com_intra = pd.DataFrame(columns=['comid', 'from_id','to_id', 'prob_avg'])
+    for com in gdf_all.comid.unique():
+        if com != -1.0:
+            gdf_com = gdf_all.uID[gdf_all.comid==com].to_list()
+            for dir in dirs:
+                df = gp.read_file(os.path.join(root, dir, shp_conn))
+                df = df.drop(columns=['geometry','time_int','date_start', 'totalori', 'date_start'])
+                df = df[df['from_id'] != df['to_id']]
+                df_inter = df[(df.from_id.isin(gdf_com)) & (df.to_id.isin(gdf_com))]
+                df_inter['comid'] = com
+                conns_com_intra = conns_com_intra.append(df_inter).drop_duplicates()
+
+    # add resolution field
+    conns_com_intra['res'] = i
+    conns_com_intra_ALL = conns_com_intra_ALL.append(conns_com_intra).drop_duplicates()
+
+# join overwater distance to dataframe
+owd = pd.read_csv(ow_dist)
+conns_merge = conns_com_intra_ALL.merge(owd, how='left', left_on=['from_id', 'to_id'], right_on=['origin_id', 'DestID'])
+conns_merge = conns_merge.drop(columns=['OBJECTID', 'PathCost', 'DestID', 'origin_id'])
+
+# groupby resolution and comid, calculate weighted connectivity length
+# equation is in Thomas et al 2014
+conns_merge['weighted_length'] = conns_merge.prob_avg * conns_merge.Shape_Leng
+conns_weighted_length = conns_merge.groupby(['res', 'comid']).agg(
+    sum_conn_strength = ('prob_avg', 'sum'),
+    sum_weighted_lengths = ('weighted_length', 'sum')
+    ).reset_index()
+conns_weighted_length['weighted_conn_length_com'] = conns_weighted_length.sum_weighted_lengths / conns_weighted_length.sum_conn_strength
+
+# output this to a csv for future reference
+conns_weighted_length.to_csv('conns_weighted_length.csv')
+
+# then think about how to compare these values (variance?)
+# see the xlsx version of the csv. I just calc variance.
+# only the 0.0008 was unique
+# now, create shapefiles from the two I select
+
+
+#################
+# DETECT COMMUNITIES AND CREATE SHAPEFILES FOR SELECTED RESOLUTION VALUES
+#################
+
+res_selected = [0.000001, 0.000007, 0.0001, 0.0008, 0.001]
+res_label = ['1e-6', '7e-7', '1e-4', '8e-4', '1e-3']
+
+for r, l in zip(res_selected, res_label):
+    print(r)
+    layers, interslice_layer, G_full = la.slices_to_layers(G_coupling)
+    partitions = [la.CPMVertexPartition(H, weights='weight', node_sizes='node_size', resolution_parameter=r) for H in layers]
+    interslice_partition = la.CPMVertexPartition(interslice_layer, resolution_parameter=0, node_sizes='node_size', weights='weight')
+    optimiser = la.Optimiser()
+    optimiser.set_rng_seed(1)
+    diff = optimiser.optimise_partition_multiplex(partitions + [interslice_partition], n_iterations=2)
 
     # Partitions explanation:
     # each subgraph gives me all the node ids in a cluster, some nodes are repeated, which would be from different time steps
@@ -440,11 +527,10 @@ for i in range(-9,1):
     gdf_all = df_pts.merge(df_freq, left_on='uID', right_on='pid', how='outer')
     # if NaN make -1 or else arcgis reads it as 0 and there is already a 0 community
     gdf_all = gdf_all.fillna({'pid':-1, 'comid':-1, 'freq':-1})
-    gdf_all.to_file(filename=out_shp.format(str(abs(i))), driver='ESRI Shapefile')
-
+    gdf_all.to_file(filename=out_shp.format(l), driver='ESRI Shapefile')
 
     # create convex polys of communities
-    input = out_shp.format(str(abs(i)))
+    input = out_shp.format(l)
     df = gp.read_file(input)
     # drop rows that are -1
     df = df[df.comid != -1]
@@ -484,7 +570,75 @@ for i in range(-9,1):
 
     gdf = gp.GeoDataFrame(polys_all, columns=['comid', 'pt_count', 'geometry', 'area'])
     gdf.crs = df.crs
-    gdf.to_file(filename=out_poly.format(str(abs(i))), driver='ESRI Shapefile')
+    gdf.to_file(filename=out_poly.format(l), driver='ESRI Shapefile')
+
+
+
+
+#################
+# ARCHIVED 20210430
+# This is the same as above, but I did it for a range of values.
+# I'm keeping this as a reference since it was good exploratory work.
+
+# SELECT LEVELS FROM ABOVE, DETECT COMMUNITIES AND CREATE SHAPEFILES
+#################
+# # from interconnectivity.csv and the plot, I color coded the values that seem to cluster and/or plateau. I will now run 1 'average' value from each of these and create shapefiles from them.
+# # Decision: from that it looks like I can just do 10**(-9 to 0)
+# for i in range(-9,1):
+#     res=10.0**i
+#     print(res)
+#     layers, interslice_layer, G_full = la.slices_to_layers(G_coupling)
+#     partitions = [la.CPMVertexPartition(H, weights='weight', node_sizes='node_size', resolution_parameter=res) for H in layers]
+#     interslice_partition = la.CPMVertexPartition(interslice_layer, resolution_parameter=0, node_sizes='node_size', weights='weight')
+#     optimiser = la.Optimiser()
+#     optimiser.set_rng_seed(1)
+#     diff = optimiser.optimise_partition_multiplex(partitions + [interslice_partition], n_iterations=2)
+
+#     df_c = pd.DataFrame(columns=['pid','comid'])
+#     for p in range(len(partitions[0])): # partitions are all the same at this point, so just need the first one
+#         if len(partitions[0].subgraph(p).vs['name'])>1:
+#             for v in partitions[0].subgraph(p).vs['name']:
+#                 df_c = df_c.append({'pid':v, 'comid': p}, ignore_index=True)
+#     df_freq = df_c.groupby(['pid', 'comid']).agg(
+#         freq = ('pid', 'count'),
+#         ).reset_index()
+#     gdf_all = df_pts.merge(df_freq, left_on='uID', right_on='pid', how='outer')
+#     gdf_all = gdf_all.fillna({'pid':-1, 'comid':-1, 'freq':-1})
+#     gdf_all.to_file(filename=out_shp.format(str(abs(i))), driver='ESRI Shapefile')
+
+#     input = out_shp.format(str(abs(i)))
+#     df = gp.read_file(input)
+#     df = df[df.comid != -1]
+#     clusters = df.groupby('comid')
+#     polys_all = []
+#     for name, cluster in clusters:
+#         point_count = len(cluster)
+#         if point_count > 2:
+#             poly = Polygon([[p.x, p.y] for p in cluster.geometry.values])
+#             convex_hull = poly.convex_hull
+#             polys_all.append([name, point_count, convex_hull, convex_hull.area])
+#         if point_count ==  2:  # for clusters with only 2 points, create a narrow ellipse
+#             point1 = cluster.iloc[0].geometry
+#             point2 = cluster.iloc[1].geometry
+#             mid_x = (point1.x + point2.x)/2
+#             mid_y = (point1.y + point2.y)/2        
+#             dist = point1.distance(point2)
+#             angle = degrees(atan2(point2.y - point1.y, point2.x - point1.x))
+#             ellipse = ((mid_x, mid_y),(dist, 100),angle)
+#             circ = shapely.geometry.Point(ellipse[0]).buffer(1)
+#             ell  = shapely.affinity.scale(circ, int(ellipse[1][0]), int(ellipse[1][1]))
+#             ellr = shapely.affinity.rotate(ell,ellipse[2])
+#             # If one need to rotate it clockwise along an upward pointing x axis:
+#             #elrv = shapely.affinity.rotate(ell,90-ellipse[2])
+#             # According to the man, a positive value means a anti-clockwise angle,
+#             # and a negative one a clockwise angle.
+#             polys_all.append([name, point_count, ellr, ellr.area])
+
+#     gdf = gp.GeoDataFrame(polys_all, columns=['comid', 'pt_count', 'geometry', 'area'])
+#     gdf.crs = df.crs
+#     gdf.to_file(filename=out_poly.format(str(abs(i))), driver='ESRI Shapefile')
+
+
 
 
 
