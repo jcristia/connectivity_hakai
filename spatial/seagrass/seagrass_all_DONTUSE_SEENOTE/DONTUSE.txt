@@ -1,0 +1,5 @@
+I think something is wrong with these files. Not sure if they match what actually happens with the script.
+
+Just refer to the version I used for the actual runs:
+
+C:\Users\jcristia\Documents\GIS\MSc_Projects\Hakai\scripts_runs_localstage\seagrass\seagrass\seagrass_20200228_SS\seagrass_prep
