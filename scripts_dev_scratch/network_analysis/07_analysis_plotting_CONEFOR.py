@@ -445,3 +445,86 @@ f.savefig(r'C:\Users\jcristia\Documents\GIS\MSc_Projects\Hakai\publications_figu
 # https://matplotlib.org/3.1.0/api/_as_gen/matplotlib.axes.Axes.set_xscale.html#matplotlib.axes.Axes.set_xscale
 # https://stackoverflow.com/questions/43463431/custom-logarithmic-axis-scaling-in-matplotlib
 ########################
+
+
+
+
+###############################################
+# % increase of ECA vs. averaged PLD
+# updated 20210426
+
+dirs = [
+    'seagrass_20200228_SS201701',
+    'seagrass_20200309_SS201705',
+    'seagrass_20200309_SS201708',
+    'seagrass_20200310_SS201101',
+    'seagrass_20200310_SS201105',
+    'seagrass_20200310_SS201108',
+    'seagrass_20200327_SS201401',
+    'seagrass_20200327_SS201405',
+    'seagrass_20200327_SS201408',
+    ]
+
+root = r'C:\Users\jcristia\Documents\GIS\MSc_Projects\Hakai\scripts_runs_cluster\seagrass'
+plds = ['01', '03', '07', '21', '60']
+overall_indices = r'conefor\conefor_connectivity_pld{}\overall_indices.txt'
+
+eca_intra = 20.11273 # see ECAstuff.xlsx in this folder for details
+# calculated by squaring the area of each patch, adding, then taking the square root
+# it will be less than just a simple adding up of area. This is because the PC
+# metric accounts for how fragmented it is.
+
+df_indices = pd.DataFrame()
+for pld in plds:
+    for dir in dirs:
+        indices = os.path.join(root, dir, overall_indices.format(pld))
+        df_ind = pd.read_csv(indices, sep='\t', names=['conefor_index', 'value'])
+        df_ind['pld'] = int(pld)
+        df_ind = df_ind.pivot(index='pld', columns='conefor_index', values='value').reset_index()
+        df_ind['datepld'] = dir[20:] + pld
+        df_indices = df_indices.append(df_ind)
+
+df_indlog = df_indices
+df_indlog['pldlog'] = np.log(df_indices.pld) # log pld
+df_indlog['season'] = df_indlog.datepld.str[4:6].astype(int) # color by season
+df_indlog['season'] = df_indlog.season.replace([1,5,8],['winter', 'spring', 'summer'])
+
+# create new column and calculate % increase
+df_indlog['ec_perc_inc'] = ((df_indlog['EC(PC)'] - eca_intra) /  df_indlog['EC(PC)']) *100
+
+sns.set()
+sns.set_style('white')
+sns.set_context('paper')
+colors = ['#377eb8', '#4daf4a', '#ff7f00']
+sns.set_palette(colors)
+
+f = sns.lmplot(x="pldlog", y="ec_perc_inc", data=df_indlog, fit_reg=False, hue='season', x_jitter=0.02, legend='full')
+f._legend.remove()
+sns.lineplot(x='pldlog', y='ec_perc_inc', data=df_indlog, ci=95, err_style='band', color='grey')
+# band is a 95% confidence interval for the means
+f.set(xlabel='ln PLD', ylabel='% of weighted habitat area (ECA) connected \n by inter patch movement')
+sns.despine(top=False, right=False)
+f.savefig(r'C:\Users\jcristia\Documents\GIS\MSc_Projects\Hakai\publications_figures\chap1\fig04_ECAnumLOG_perc.svg')
+
+# interpretation:
+# possible max EC value ~39-45. This is when every patche either gives all of its
+# particles out equally, or it gives all of its particles to the largest patch, 
+# and the largest patch gives all of its particles to 2nd largest patch. Both
+# scenarios are obviously unrealistic, especially since some patches dont have
+# enough particles to connect to every other patch.
+
+# oof, it took a while to figure out how to label the y axis, but I think this 
+# is it.
+# It's simple enough for a quick read. However, for someone that knows the PC
+# metric it might take more explaining since it simplifies it a bit too much:
+# Since the maximum of ECA in my directed graph is roughly double the ECAintra,
+# then the percent of ECA attributable to interconnectivity is equivalent to the
+# percent of habitat area (weighted) that is connected by dispersal (interpatch)
+
+# the key here is that it is not the COUNT of habitat connected. It is the
+# equivalent AREA connected. This is another great reason for why we should add
+# area as a attribute. Saying that x% of meadows are connected may not matter if
+# that percentage only includes small meadows and all the large meadows are
+# isolated.
+
+########################
