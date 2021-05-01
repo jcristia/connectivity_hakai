@@ -424,7 +424,7 @@ fig.savefig('resconn_20201108.png')
 
 
 # resolution values where there is a plateau
-res_plateau = [0.000001, 0.000007, 0.0001, 0.0008]
+res_plateau = [0.0000005, 0.000001, 0.000007, 0.000008, 0.00001, 0.00009, 0.0001, 0.0007, 0.0008, 0.0009, 0.001]
 
 # find partitions for each resolution value
 conns_com_intra_ALL = pd.DataFrame(columns=['res', 'comid', 'from_id','to_id', 'prob_avg'])
@@ -496,8 +496,8 @@ conns_weighted_length.to_csv('conns_weighted_length.csv')
 # DETECT COMMUNITIES AND CREATE SHAPEFILES FOR SELECTED RESOLUTION VALUES
 #################
 
-res_selected = [0.000001, 0.000007, 0.0001, 0.0008, 0.001]
-res_label = ['1e-6', '7e-7', '1e-4', '8e-4', '1e-3']
+res_selected = [0.0000005, 0.000001, 0.000007, 0.000008, 0.00001, 0.00009, 0.0001, 0.0007, 0.0008, 0.0009, 0.001]
+res_label = ['7_5', '6_1', '6_7', '6_8', '5_1', '5_9', '4_1', '4_7', '4_8', '4_9', '3_1']
 
 for r, l in zip(res_selected, res_label):
     print(r)
