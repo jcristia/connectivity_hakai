@@ -45,6 +45,13 @@ conns_df = conns_df[~conns_df.from_id.isin(uIDs_not)]
 conns_df = conns_df[~conns_df.to_id.isin(uIDs_not)]
 conns_df = pd.DataFrame(conns_df) # geopandas to pandas
 
+# use time_int to categorize by PLD
+conns_df.loc[conns_df.timeintavg < 2880, 'pld'] = 60
+conns_df.loc[conns_df.timeintavg < 1008, 'pld'] = 21
+conns_df.loc[conns_df.timeintavg < 336, 'pld'] = 7
+conns_df.loc[conns_df.timeintavg < 144, 'pld'] = 3
+conns_df.loc[conns_df.timeintavg < 48, 'pld'] = 1
+
 # pandas merge, keep all records from distance dataframe
 df_merge = dist_df.merge(conns_df, how='left', left_on=['origin_id', 'DestID'], right_on=['from_id', 'to_id'])
 
@@ -58,6 +65,10 @@ df_merge['withzeros'] = 'yes'
 df_nozero = df_merge[df_merge.probavgm > 0]
 df_nozero.withzeros = 'no'
 df_concat = pd.concat([df_merge, df_nozero]).reset_index(drop=True)
+
+
+
+
 
 
 
@@ -118,20 +129,54 @@ std = unp.std_devs(py)
 
 # PLOT 1
 # plot data (run this all together so that the line plots on top)
+###########
 sns.set()
 sns.set_style('white')
 sns.set_context('paper')
-fig, ax = plt.subplots()
-f = sns.regplot(x="distkm", y="problog", data=df_nozero, scatter=True, fit_reg=False, scatter_kws={"s": 1, 'alpha':0.3}, ax=ax) # plot points
+#fig, ax = plt.subplots()
+#f = sns.regplot(x="distkm", y="problog", data=df_nozero, scatter=True, fit_reg=False, scatter_kws={"s": 1, 'alpha':0.3}, ax=ax) # plot points
+f = sns.lmplot(
+    x="distkm", 
+    y="problog", 
+    data=df_nozero, 
+    hue='pld',
+    hue_order=[60,21,7,3,1], 
+    scatter=True, 
+    fit_reg=False, 
+    scatter_kws={"s": 1, 'alpha':1},
+    legend=True,
+    legend_out=False,
+    ) # plot points
 plt.plot(px, nom, 'gray') # plot fitted curve
 #plt.plot(px, nom - 2 * std) # if you want to plot just the bounding lines of the CI
 #plt.plot(px, nom + 2 * std)
 ## or plot it as a fill:
 #plt.fill_between(px, nom - 2 * std, nom + 2 * std, color='gray', alpha=0.2) # plot CI
 # However, I won't plot the CI. it doesn't really show up, and is it relevant on a log scale?
+
+# LEGEND...
+# I need to use lmplot instead of regplot because it allows me to use hue, but
+# it is a facetgrid type of plot (higher order?), so the access to the legend is
+# different (there is not ax= attribute in lmplot like in regplot).
+# I need to order my points so that 60 draws on bottom, which means putting it
+# first in the list, and then the legend orders this way.
+# There is no easy way to reorder the legend (there is if this was a regplot
+# though). So, I need to manually create a legend. Oh well.
+pal = sns.color_palette() # I'm just using the default
+pal_hex = pal.as_hex()[:5]
+pal_hex.reverse()
+handles = []
+labels = ['1', '3', '7', '21', '60']
+import matplotlib.lines as mlines
+for h, l in zip(pal_hex, labels):
+    blue_line = mlines.Line2D([], [], color=h, linestyle='None', marker='o', markersize=1, label=l)
+    handles.append(blue_line)
+plt.legend(title='PLD (days)', frameon=False, handles=handles)
+
 f.set(xlim=(0,200))
 f.set(xlabel='Distance (km)', ylabel=r'log$_{10}$ Connection Strength')
-fig.savefig(r'C:\Users\jcristia\Documents\GIS\MSc_Projects\Hakai\publications_figures\chap1\fig08_conn_v_dist_log.svg')
+f.savefig(r'C:\Users\jcristia\Documents\GIS\MSc_Projects\Hakai\publications_figures\chap1\fig08_conn_v_dist_log.svg')
+###########
 
 # get r squared
 residuals = df_nozero.problog- func(df_nozero.distkm, *popt)
