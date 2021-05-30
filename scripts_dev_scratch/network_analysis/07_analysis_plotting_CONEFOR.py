@@ -502,7 +502,7 @@ f = sns.lmplot(x="pldlog", y="ec_perc_inc", data=df_indlog, fit_reg=False, hue='
 f._legend.remove()
 sns.lineplot(x='pldlog', y='ec_perc_inc', data=df_indlog, ci=95, err_style='band', color='grey')
 # band is a 95% confidence interval for the means
-f.set(xlabel='ln PLD', ylabel='% of weighted habitat area (ECA) connected \n by inter patch movement')
+f.set(xlabel='ln PD (days)', ylabel='% of weighted habitat area connected \n by inter patch movement')
 sns.despine(top=False, right=False)
 f.savefig(r'C:\Users\jcristia\Documents\GIS\MSc_Projects\Hakai\publications_figures\chap1\fig04_ECAnumLOG_perc.svg')
 
