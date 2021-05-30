@@ -109,13 +109,15 @@ df_concat = pd.concat([df_merge, df_nozero]).reset_index(drop=True)
 # At first I did not want to do this because I wanted to compare when I do and do not include connections with a strength of zero (which can't be log transformed).
 # However, for the sake of getting a good fit, I will drop that. So...
 
-df_nozero['problog'] = np.log10(df_nozero.probavgm)
+#df_nozero['problog'] = np.log10(df_nozero.probavgm)
+df_nozero['probperc'] = df_nozero.probavgm * 100
+df_nozero['probperclog'] = np.log10(df_nozero.probperc)
 def func(x, a, b):
     return a * x**(b)
-popt, pcov = curve_fit(func, df_nozero.distkm, df_nozero.problog)
+popt, pcov = curve_fit(func, df_nozero.distkm, df_nozero.probperclog)
 # "Use non-linear least squares to fit a function, f, to data."
 print(popt) # to see a,b
-print(pcov)
+#print(pcov)
 
 # get 95% confidence interval
 # this ended up not being as straight forward as I thought it would be.
@@ -137,7 +139,7 @@ sns.set_context('paper')
 #f = sns.regplot(x="distkm", y="problog", data=df_nozero, scatter=True, fit_reg=False, scatter_kws={"s": 1, 'alpha':0.3}, ax=ax) # plot points
 f = sns.lmplot(
     x="distkm", 
-    y="problog", 
+    y="probperclog", 
     data=df_nozero, 
     hue='pld',
     hue_order=[60,21,7,3,1], 
@@ -147,7 +149,7 @@ f = sns.lmplot(
     legend=True,
     legend_out=False,
     ) # plot points
-plt.plot(px, nom, 'gray') # plot fitted curve
+plt.plot(px, nom, 'dimgray') # plot fitted curve
 #plt.plot(px, nom - 2 * std) # if you want to plot just the bounding lines of the CI
 #plt.plot(px, nom + 2 * std)
 ## or plot it as a fill:
@@ -169,25 +171,25 @@ handles = []
 labels = ['1', '3', '7', '21', '60']
 import matplotlib.lines as mlines
 for h, l in zip(pal_hex, labels):
-    blue_line = mlines.Line2D([], [], color=h, linestyle='None', marker='o', markersize=1, label=l)
+    blue_line = mlines.Line2D([], [], color=h, linestyle='None', marker='o', markersize=2, label=l)
     handles.append(blue_line)
-plt.legend(title='PLD (days)', frameon=False, handles=handles)
+plt.legend(title='PD (days)', frameon=False, handles=handles)
 
 f.set(xlim=(0,200))
-f.set(xlabel='Distance (km)', ylabel=r'log$_{10}$ Connection Strength')
+f.set(xlabel='Distance (km)', ylabel=r'log$_{10}$ Connection probability (%)')
 f.savefig(r'C:\Users\jcristia\Documents\GIS\MSc_Projects\Hakai\publications_figures\chap1\fig08_conn_v_dist_log.svg')
 ###########
 
 # get r squared
-residuals = df_nozero.problog- func(df_nozero.distkm, *popt)
+residuals = df_nozero.probperclog- func(df_nozero.distkm, *popt)
 ss_res = np.sum(residuals**2)
-ss_tot = np.sum((df_nozero.problog-np.mean(df_nozero.problog))**2)
+ss_tot = np.sum((df_nozero.probperclog-np.mean(df_nozero.probperclog))**2)
 r_squared = 1 - (ss_res / ss_tot)
 print(r_squared)
 
 # EQUATION
-# y = -2.17(x^0.18)
-# r2 = 0.46
+# y = -0.52(x^0.38)
+# r2 = 0.44
 
 
 
