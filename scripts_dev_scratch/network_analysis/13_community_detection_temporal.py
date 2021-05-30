@@ -146,6 +146,14 @@ G_coupling.es['weight'] = [b, w, b, w, b, w, b, w, b, w, b, w, b, b]
 # I could write something like:
 # I tested a range of interslice weightings and different arrangements of slices. I am interested in seasonal variation, and repetition across years is just to get more of an average for a season, not to look at yearly variation. Therefore, I arranged slices by season. I used a higher interslice weighting between slices of the same season to smooth out any differences in community structure, then I used a lower weighting between seasons to allow community structure to vary more so as to see if there are changing dynamics between seasons. The general structure is not sensitive to any weights above 0.0001. I tested all way up to 1000 and it stays stable. However, below that weight we start to see differences and a lot more overlap of communities. Therefore, for within seasons, I stayed above this weighting, and between seasons I used a value just below it.
 
+# 20210523
+# I need to make sure this is properly justified and that I had a method and wasn't completely subjective.
+# I first start with the knowledge that species assemblages vary seasonally, so I want to see how clustering might vary that way.
+# Therefore, to see any signal of that I need between season weighting to be lower than within season weighting.
+# I tested a range of interslice weightings and looked at where things stabilized with the assumption that this would be a more probable arrangement if the same value is produced across a range of weighting values.
+# I then did the same thing for between seasons, and saw where a big jump was made and then chose an averagish value that wasn't exteremely small. If I set it very small then I am saying that there is zero correlation between seasons, which is probably not true e.g. some species abundances vary seasonally, but others may not.
+
+
 ## Add the 9 graphs to G_coupling
 G_coupling.vs['slice'] = graphs
 
