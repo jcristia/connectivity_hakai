@@ -23,9 +23,13 @@ df = df.append({'common': '1daygeneral', 'pld_days': 1}, ignore_index=True)
 # plot ln(pld) against pld
 df['pld_days_ln'] = np.log(df['pld_days'])
 
-dims = (17, 11)
+dims = (8.5, 5.5)
+sns.set()
+sns.set_style('white')
+sns.set_context('paper')
 f, ax = plt.subplots(figsize=dims) 
 sxy = sns.scatterplot(x='pld_days', y='pld_days_ln', data=df, ax=ax)
+sxy.set(xlabel='PD (days)', ylabel='ln PD (days)')
 ax.xaxis.set_ticks(np.arange(0, np.around(max(df['pld_days']), -1) + 10, 10)) # -1 rounds it to nearest 10
 ax.set_xlim(0)
 ax.set_ylim(0)
@@ -38,8 +42,9 @@ plt.scatter(xint_ln_mid, yint_mid, color='red', zorder=10, clip_on=False) # zord
 for i, txt in enumerate(labels):
     ax.annotate(txt, (xint_ln_mid[i], yint_mid[i]),
                 textcoords="offset points", # how to position text
-                xytext=(0,15), # distance from point to text
-                ha='center') # horizontal alignment
+                xytext=(17,9), # distance from point to text
+                ha='center',
+                weight='bold') # horizontal alignment
 
 # create mid point lines for bins
 yint = [0.5, 1.5, 2.5, 3.5]
@@ -52,7 +57,7 @@ plt.hlines(yint, 0, xint_ln, linestyle='dashed', linewidth=1, color='grey')
 
 plt.show()
 
-f.savefig('plds.pdf', bbox_inches='tight')
+f.savefig('pds.svg', bbox_inches='tight')
 
 # interpretation:
 #There is a lot of variation in my PLD values. Some short PLDs, and some that are very large. Since I am not running a simulation for each individual, and since there is not a lot of info on exact PLDs, then I will want to create bins of PLDs and match species to those. However, to create bins of equal size without having to do too many to cover the full range, I will need to create bins on a log scale. Therefore, I will use a bin size of e^x. So EXP(0,1,2,3,4). This equates to PLDs of (1, 2.7, 7.4, 20.1, 54.6). I will round these to easily understand times (1, 3, 7, 21, 60).
