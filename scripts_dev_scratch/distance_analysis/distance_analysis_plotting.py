@@ -46,11 +46,12 @@ conns_df = conns_df[~conns_df.to_id.isin(uIDs_not)]
 conns_df = pd.DataFrame(conns_df) # geopandas to pandas
 
 # use time_int to categorize by PLD
-conns_df.loc[conns_df.timeintavg < 2880, 'pld'] = 60
-conns_df.loc[conns_df.timeintavg < 1008, 'pld'] = 21
-conns_df.loc[conns_df.timeintavg < 336, 'pld'] = 7
-conns_df.loc[conns_df.timeintavg < 144, 'pld'] = 3
-conns_df.loc[conns_df.timeintavg < 48, 'pld'] = 1
+# conns_df.loc[conns_df.timeintavg < 2880, 'pld'] = 60
+# conns_df.loc[conns_df.timeintavg < 1008, 'pld'] = 21
+# conns_df.loc[conns_df.timeintavg < 336, 'pld'] = 7
+# conns_df.loc[conns_df.timeintavg < 144, 'pld'] = 3
+# conns_df.loc[conns_df.timeintavg < 48, 'pld'] = 1
+# NO LONGER need to do this since PLD was added in earlier. Time_int was incorrect.
 
 # pandas merge, keep all records from distance dataframe
 df_merge = dist_df.merge(conns_df, how='left', left_on=['origin_id', 'DestID'], right_on=['from_id', 'to_id'])
