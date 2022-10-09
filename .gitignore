@@ -6,6 +6,7 @@
 !scripts_tools/
 !spatial/
 !Workflow_folderstructure_README.pptx
+!README.md
 
 # then exclude specific folder and file types
 output
